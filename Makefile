@@ -1,7 +1,12 @@
 all: bin lib rattle
 
-rattle: lib/libamy.a src/main.c
-	$(CC) -I amy/src src/main.c -o bin/rattle -L lib -lamy -lm
+rattle: lib/libamy.a lib/librma.a src/main.c src/rattlefy.c
+	$(CC) -Isrc -Iamy/src src/main.c src/rattlefy.c -o bin/rattle -Llib -lrma -lamy -lm
+
+lib/librma.a: lib
+	gcc -Iamy/src -c src/rma.c -o lib/rma.o
+	ar -cvq lib/librma.a lib/rma.o
+	ranlib lib/librma.a
 
 lib/libamy.a: lib
 	gcc -c amy/src/algorithms.c   -o lib/algorithms.o
@@ -13,8 +18,17 @@ lib/libamy.a: lib
 	gcc -c amy/src/oscillators.c  -o lib/oscillators.o
 	gcc -c amy/src/partials.c     -o lib/partials.o
 	gcc -c amy/src/pcm.c          -o lib/pcm.o
-	gcc -I miniaudio -c amy/src/libminiaudio-audio.c -o lib/libminiaudio-audio.o
-	ar -cvq lib/libamy.a lib/*.o
+	ar -cvq lib/libamy.a \
+    lib/algorithms.o \
+    lib/amy.o \
+    lib/delay.o \
+    lib/envelope.o \
+    lib/filters.o \
+    lib/log2_exp2.o \
+    lib/oscillators.o \
+    lib/partials.o \
+    lib/pcm.o \
+    #
 	ranlib lib/libamy.a
 
 bin:

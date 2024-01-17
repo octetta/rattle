@@ -1,5 +1,6 @@
-# rattle
-A REPL for an audio playground
+# rattle - a REPL and audio playground
+
+Based on AMY https://github.com/bwhitman/amy
 
 ## Build
 
@@ -7,4 +8,11 @@ A REPL for an audio playground
 git submodule init
 git submodule update
 make
+```
+
+## Run
+
+```
+./bin/rattle
+v0w0f440l1;+500v0l0
 ```
