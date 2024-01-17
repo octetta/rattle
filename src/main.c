@@ -48,14 +48,10 @@ int main(int argc, char *argv[]) {
     while (code) {
         char input[1024];
         if (use_linenoise) {
-#if 0
-            char *line = linenoise(PROMPT);
-            if (line == NULL) break;
-            strcpy(input, line);
-            linenoiseHistoryAdd(line);
-            linenoiseFree(line);
-#else
             char *line = NULL;
+#if 0
+            line = linenoise(PROMPT);
+#else
             struct linenoiseState ls;
             char buf[1024];
             linenoiseEditStart(&ls, -1, -1, buf, sizeof(buf), PROMPT);
@@ -84,8 +80,11 @@ int main(int argc, char *argv[]) {
                 }
             }
             linenoiseEditStop(&ls);
-            if (line == NULL) break;
 #endif
+            if (line == NULL) break;
+            strcpy(input, line);
+            linenoiseHistoryAdd(line);
+            linenoiseFree(line);
         } else {
             INFO(PROMPT);
             fflush(stdout);
