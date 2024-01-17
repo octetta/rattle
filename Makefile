@@ -1,6 +1,6 @@
-all: bin lib rattle
+all: bin lib bin/rattle
 
-rattle: lib/libamy.a lib/librma.a src/main.c src/rattlefy.c
+bin/rattle: lib/libamy.a lib/librma.a src/main.c src/rattlefy.c
 	$(CC) \
     -Isrc \
     -Iamy/src \

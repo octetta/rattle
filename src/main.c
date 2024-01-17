@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <sys/select.h>
 
 #include "amy.h"
 #include "rma.h"
@@ -47,11 +48,44 @@ int main(int argc, char *argv[]) {
     while (code) {
         char input[1024];
         if (use_linenoise) {
+#if 0
             char *line = linenoise(PROMPT);
             if (line == NULL) break;
             strcpy(input, line);
             linenoiseHistoryAdd(line);
             linenoiseFree(line);
+#else
+            char *line = NULL;
+            struct linenoiseState ls;
+            char buf[1024];
+            linenoiseEditStart(&ls, -1, -1, buf, sizeof(buf), PROMPT);
+            while (1) {
+                fd_set readfds;
+                struct timeval tv;
+                int r;
+                FD_ZERO(&readfds);
+                FD_SET(ls.ifd, &readfds);
+                tv.tv_sec = 1;
+                tv.tv_usec = 0;
+                r = select(ls.ifd+1, &readfds, NULL, NULL, &tv);
+                if (r == -1) {
+                    printf("select failed\n");
+                    code = 0;
+                    break;
+                } else if (r) {
+                    line = linenoiseEditFeed(&ls);
+                    if (line != linenoiseEditMore) break;
+                } else {
+                    // timeout
+                    static int counter = 0;
+                    linenoiseHide(&ls);
+                    printf("count %d\n", counter++);
+                    linenoiseShow(&ls);
+                }
+            }
+            linenoiseEditStop(&ls);
+            if (line == NULL) break;
+#endif
         } else {
             INFO(PROMPT);
             fflush(stdout);
@@ -62,13 +96,10 @@ int main(int argc, char *argv[]) {
 
         unsigned int now = amy_sysclock();
 
-        //VERBOSE("NOW=%d\n", now);
-
         while (token != NULL) {
             int n = token - input - 1;
             char c = 0;
             if (n > 0) c = prior[n];
-            //VERBOSE("[%d]\n", ntok++);
             code = process(now, token, c);
             token = strtok(NULL, splitter);
         }
