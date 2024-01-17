@@ -26,22 +26,13 @@
 #define CAPTURE   '<'
 #define PATCH     '>'
 #define PATTERN   '/'
+#define COMMENT   '#'
 
 #define PROMPT    "# "
 
 #define USR (0)
 #define SYS (1)
 
-void init_meter(int quarter);
-int meter(int a, int b);
-int intgrabber(char *token, unsigned int *next);
-char isident(char ident);
-char isnumber(char c);
-int other(char *token, int start);
-int query(char *token, int start);
-int _setter(int us, char ident, char *val);
-int setgetsys(char *token, int start);
-int setgetusr(char *token, int start);
 int process(unsigned int now, char *token, char sep);
 char *repl(char *buf, unsigned int len, void *user);
 

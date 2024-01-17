@@ -3,6 +3,7 @@
 #include "amy.h"
 #include "rma.h"
 #include "rattlefy.h"
+#include "linenoise.h"
 
 int main(int argc, char *argv[]) {
     int opt;
@@ -34,13 +35,25 @@ int main(int argc, char *argv[]) {
     amy_live_start();
     amy_reset_oscs();
     int code = 1;
+#if 0
+#else
+    linenoiseHistorySetMaxLen(999);
+    linenoiseHistoryLoad(".rattle_history");
+#endif
     while (code) {
         char input[1024];
+#if 0
         INFO(PROMPT);
         fflush(stdout);
         //if (fgets(input, sizeof(input)/2, stdin) == NULL) break;
         if (repl(input, sizeof(input)/2, stdin) == NULL) break;
-
+#else
+        char *line = linenoise(PROMPT);
+        if (line == NULL) break;
+        strcpy(input, line);
+        linenoiseHistoryAdd(line);
+        linenoiseFree(line);
+#endif
         char *prior = strdup(input);
         char *token = strtok(input, splitter);
 
@@ -59,5 +72,9 @@ int main(int argc, char *argv[]) {
         free(prior);
     }
     amy_live_stop();
+#if 0
+#else
+    linenoiseHistorySave(".rattle_history");
+#endif
     return 0;
 }

@@ -1,3 +1,6 @@
 [submodule "amy"]
 	path = amy
 	url = https://github.com/bwhitman/amy.git
+[submodule "linenoise"]
+	path = linenoise
+	url = https://github.com/antirez/linenoise.git

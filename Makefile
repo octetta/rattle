@@ -1,14 +1,41 @@
 all: bin lib rattle
 
 rattle: lib/libamy.a lib/librma.a src/main.c src/rattlefy.c
-	$(CC) -Isrc -Iamy/src src/main.c src/rattlefy.c -o bin/rattle -Llib -lrma -lamy -lm
+	$(CC) \
+    -Isrc \
+    -Iamy/src \
+    -Ilinenoise \
+    src/main.c \
+    src/rattlefy.c \
+    linenoise/linenoise.c \
+    -o bin/rattle \
+    -Llib \
+    -lrma \
+    -lamy \
+    -lm \
+    #
 
-lib/librma.a: lib
+lib/librma.a: \
+    src/rma.c \
+    src/rma.h \
+    #
+	mkdir -p lib
 	gcc -Iamy/src -c src/rma.c -o lib/rma.o
 	ar -cvq lib/librma.a lib/rma.o
 	ranlib lib/librma.a
 
-lib/libamy.a: lib
+lib/libamy.a: \
+	amy/src/algorithms.c \
+	amy/src/amy.c \
+	amy/src/delay.c \
+	amy/src/envelope.c \
+	amy/src/filters.c \
+	amy/src/log2_exp2.c \
+	amy/src/oscillators.c \
+	amy/src/partials.c \
+	amy/src/pcm.c \
+  #
+	mkdir -p lib
 	gcc -c amy/src/algorithms.c   -o lib/algorithms.o
 	gcc -c amy/src/amy.c          -o lib/amy.o
 	gcc -c amy/src/delay.c        -o lib/delay.o
