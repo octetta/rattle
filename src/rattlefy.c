@@ -184,7 +184,7 @@ int setgetsys(char *token, int start) {
     char ident = token[start+1];
     if (ident == '\0') {
         INFO("show all\n");
-        return 0;
+        return 1;
     }
     if (!isident(ident)) return 1;
     int index = ident - IDENT_FIRST;
@@ -221,7 +221,7 @@ int setgetusr(char *token, int start) {
     char ident = token[start+1];
     if (ident == '\0') {
         INFO("show all\n");
-        return 0;
+        return 1;
     }
     if (!isident(ident)) return 1;
     int index = ident - IDENT_FIRST;
@@ -344,8 +344,3 @@ int process(unsigned int now, char *token, char sep) {
 }
 
 char splitter[] = { SEPARATOR, '\n', '\0' };
-
-char *repl(char *buf, unsigned int len, void *user) {
-    return fgets(buf, len, (FILE *)user);
-}
-

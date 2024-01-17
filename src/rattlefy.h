@@ -34,7 +34,6 @@
 #define SYS (1)
 
 int process(unsigned int now, char *token, char sep);
-char *repl(char *buf, unsigned int len, void *user);
 
 extern char splitter[];
 #endif
