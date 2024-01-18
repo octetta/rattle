@@ -4,6 +4,3 @@
 [submodule "linenoise"]
 	path = linenoise
 	url = https://github.com/antirez/linenoise.git
-[submodule "tinycthread"]
-	path = tinycthread
-	url = https://github.com/tinycthread/tinycthread.git

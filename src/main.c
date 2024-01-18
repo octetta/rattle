@@ -12,7 +12,6 @@
 #include "rma.h"
 #include "rattlefy.h"
 #include "linenoise.h"
-#include "tinycthread.h"
 
 static int use_linenoise = 1;
 
@@ -61,13 +60,16 @@ int main(int argc, char *argv[]) {
                 break; 
         } 
     }
+
     int serve_fd = udp_open(8405);
-    int send_fd = udp_open(8406);
+    
+    int timing[2];
+    // [0] = me
+    // [1] = rma
+    pipe(timing);
 
-    printf("serve_fd = %d\n", serve_fd);
-    printf("send_fd = %d\n", send_fd);
-
-    set_signal_fd(send_fd);
+    set_signal_fd(timing[1]);
+    set_frame_match(441*40);
 
     amy_start(/* cores= */ 1, /* reverb= */ 0, /* chorus= */ 0);
     amy_live_start();
@@ -78,12 +80,10 @@ int main(int argc, char *argv[]) {
         linenoiseHistoryLoad(".rattle_history");
     }
     
-    //thrd_t t;
-    //if (thrd_create(&t, metro, (void *)0) == thrd_success) {
-    //    printf("METRO WORKED\n");
-    //}
-    
     unsigned int mark;
+    unsigned int timea = 0;
+    unsigned int timeb = 0;
+    unsigned int timec = 0;
     while (code) {
         char input[1024];
         int len = 0;
@@ -106,7 +106,8 @@ int main(int argc, char *argv[]) {
                 struct pollfd p[2];
                 p[0].fd = ls.ifd;
                 p[0].events = POLLIN;
-                p[1].fd = serve_fd;
+                //p[1].fd = serve_fd;
+                p[1].fd = timing[0];
                 p[1].events = POLLIN;
                 r = poll(p, 2, 1000);
 #endif
@@ -120,9 +121,17 @@ int main(int argc, char *argv[]) {
                         if (line != linenoiseEditMore) break;
                     }
                     if (p[1].revents & POLLIN) {
-                        char buf[1024];
-                        read(serve_fd, buf, 1024);
-                        puts("!");
+                        char buf[1025];
+                        //read(serve_fd, buf, 1024);
+                        int n = read(timing[0], buf, 1024);
+                        if (n > 0) {
+                            buf[n] = '\0';
+                            //printf("<%s>\n", buf);
+                            timeb = amy_sysclock();
+                            timec = timeb - timea;
+                            timea = timeb;
+                            amy_play_message("v50l1");
+                        }
                     }
                 } else {
                     // timeout
@@ -150,8 +159,9 @@ int main(int argc, char *argv[]) {
         }
         
         mark = amy_sysclock();
-        //metro_info();
         
+        printf("timec:%d\n", timec);
+
         if (len == 0) continue;
         
         char *token = strtok(input, splitter);
@@ -162,9 +172,6 @@ int main(int argc, char *argv[]) {
             token = strtok(NULL, splitter);
         }
     }
-
-    //metro_stop();
-    //thrd_join(t, NULL);
 
     amy_live_stop();
     
