@@ -10,8 +10,8 @@
 #define STORAGE_SIZE 64
 #define QUARTER 250
 
-#define METER_SYM ('m')
-#define METER_INDEX (METER_SYM - IDENT_FIRST)
+#define RATIO_SYM ('m')
+#define RATIO_INDEX (RATIO_SYM - IDENT_FIRST)
 
 #define INFO printf
 #define VERBOSE printf
@@ -33,7 +33,13 @@
 #define USR (0)
 #define SYS (1)
 
-int process(unsigned int now, char *token, char sep);
+int process(unsigned int now, char *token);
 
 extern char splitter[];
+
+//
+
+int metro(void *arg);
+void metro_info(void);
+void metro_stop(void);
 #endif

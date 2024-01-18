@@ -62,6 +62,15 @@ static short *capture = NULL;
 static int capture_active = 0;
 static unsigned int capture_req_frames = 0;
 static unsigned int capture_rcv_frames = 0;
+static unsigned int signal_frame_count = 0;
+static unsigned int signal_frame_match = 441*250;
+static int signal_fd = -1;
+void set_signal_fd(int fd) {
+    signal_fd = fd;
+}
+void set_frame_match(unsigned int n) {
+    signal_frame_match = n;
+}
 
 void capture_start(short *buf, unsigned int frames, short *channels) {
     if (channels) *channels = AMY_NCHANS;
@@ -100,6 +109,13 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
                 capture[capture_rcv_frames++] = leftover_buf[AMY_NCHANS * frame + c];
                 if (capture_rcv_frames >= capture_req_frames) capture_active = 0;
             }
+            if (signal_fd >= 0) {
+                signal_frame_count++;
+                if (signal_frame_count > signal_frame_match) {
+                    write(signal_fd, ".", 1);
+                    signal_frame_count = 0;
+                }
+            }
         }
     }
 
@@ -115,6 +131,13 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
                 if (capture_active) {
                     capture[capture_rcv_frames++] = buf[AMY_NCHANS * frame + c];
                     if (capture_rcv_frames >= capture_req_frames) capture_active = 0;
+                }
+                if (signal_fd >= 0) {
+                    signal_frame_count++;
+                    if (signal_frame_count > signal_frame_match) {
+                        write(signal_fd, ".", 1);
+                        signal_frame_count = 0;
+                    }
                 }
             }
         }

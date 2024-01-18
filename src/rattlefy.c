@@ -1,16 +1,25 @@
 #include <ctype.h>
 #include <string.h>
+#include <sys/time.h>
 
 #include "amy.h"
 #include "rma.h"
 #include "rattlefy.h"
+#include "tinycthread.h"
 
 int times[RATIO_TOP][RATIO_BOTTOM] = {{-1}};
 
-char usrvar[26][STORAGE_SIZE] = {[0 ... IDENT_COUNT-1] = {[0 ... STORAGE_SIZE-1] = 0}};
-char sysvar[26][STORAGE_SIZE] = {[0 ... IDENT_COUNT-1] = {[0 ... STORAGE_SIZE-1] = 0}};
+char usrvar[IDENT_COUNT][STORAGE_SIZE] = {[0 ... IDENT_COUNT-1] = {[0 ... STORAGE_SIZE-1] = 0}};
+char sysvar[IDENT_COUNT][STORAGE_SIZE] = {[0 ... IDENT_COUNT-1] = {[0 ... STORAGE_SIZE-1] = 0}};
 
-void init_meter(int quarter) {
+int usrvar_int[IDENT_COUNT] = {[0 ... IDENT_COUNT-1] = 0};
+double usrvar_fp[IDENT_COUNT] = {[0 ... IDENT_COUNT-1] = 0.0};
+unsigned char usrvar_data[IDENT_COUNT][STORAGE_SIZE] = {[0 ... IDENT_COUNT-1] = {[0 ... STORAGE_SIZE-1] = 0}};
+
+int metro_quarter = QUARTER;
+
+void init_ratio(int quarter) {
+    metro_quarter = quarter;
     for (int i=0; i<RATIO_TOP; i++) {
         for (int j=0; j<RATIO_BOTTOM; j++) {
             times[i][j] = (quarter * 4) * (i+1) / (j+1);
@@ -18,7 +27,7 @@ void init_meter(int quarter) {
     }
 }
 
-int meter(int a, int b) {
+int ratio(int a, int b) {
     if (a > RATIO_TOP) return QUARTER;
     if (b > RATIO_BOTTOM) return QUARTER;
 
@@ -26,8 +35,8 @@ int meter(int a, int b) {
     if (b < 1) return QUARTER;
 
     if (times[0][0] == -1) {
-        init_meter(QUARTER);
-        sprintf(sysvar[METER_INDEX], "%d", QUARTER);
+        init_ratio(QUARTER);
+        sprintf(sysvar[RATIO_INDEX], "%d", QUARTER);
     }
     return times[a-1][b-1];
 }
@@ -54,9 +63,9 @@ unsigned int lens[BLEN] = {0, 0, 0, 0};
 short chans[BLEN] = {AMY_NCHANS, AMY_NCHANS, AMY_NCHANS, AMY_NCHANS};
 
 char isident(char ident) {
-    if (ident < IDENT_FIRST) return 1;
-    if (ident > IDENT_LAST) return 1;
-    return 0;
+    if (ident < IDENT_FIRST) return 0;
+    if (ident > IDENT_LAST) return 0;
+    return 1;
 }
 
 char isnumber(char c) {
@@ -154,11 +163,11 @@ int query(char *token, int start) {
             }
             if (w) INFO("\n");
             break;
-        case METER_SYM:
-            meter(1,1);
+        case RATIO_SYM:
+            ratio(1,1);
             for (int i=0; i<RATIO_TOP; i++) {
                 for (int j=0; j<RATIO_BOTTOM; j++) {
-                    INFO("_%d%d => %-5d ; ", i+1, j+1, meter(i+1, j+1));
+                    INFO("_%d%d => %-5d ; ", i+1, j+1, ratio(i+1, j+1));
                 }
                 INFO("\n");
             }
@@ -193,10 +202,10 @@ int setgetsys(char *token, int start) {
         char *val = token+3;
         _setter(SYS, ident, val);
         switch (ident) {
-            case METER_SYM:
+            case RATIO_SYM:
                 int n = intgrabber(val, NULL);
                 if (n > 0) {
-                    init_meter(n);
+                    init_ratio(n);
                     sprintf(sysvar[index], "%d", n);
                 }
                 break;
@@ -236,7 +245,7 @@ int setgetusr(char *token, int start) {
     return 1;
 }
 
-int process(unsigned int now, char *token, char sep) {
+int process(unsigned int now, char *token) {
     char output[1024];
     int tflag = 0;
     int rflag = 0;
@@ -297,7 +306,7 @@ int process(unsigned int now, char *token, char sep) {
     } else if (mflag) {
         int a = token[start+1] - '0';
         int b = token[start+2] - '0';
-        int c = meter(a, b);
+        int c = ratio(a, b);
         if (c < 0) {
             return -1;
         }
@@ -344,3 +353,95 @@ int process(unsigned int now, char *token, char sep) {
 }
 
 char splitter[] = { SEPARATOR, '\n', '\0' };
+
+static int timeval_subtract(struct timeval *result, struct timeval *x, struct timeval *y) {
+    /* Perform the carry for the later subtraction by updating y. */
+    if (x->tv_usec < y->tv_usec) {
+        int nsec = (y->tv_usec - x->tv_usec) / 1000000 + 1;
+        y->tv_usec -= 1000000 * nsec;
+        y->tv_sec += nsec;
+    }
+    if (x->tv_usec - y->tv_usec > 1000000) {
+        int nsec = (x->tv_usec - y->tv_usec) / 1000000;
+        y->tv_usec += 1000000 * nsec;
+        y->tv_sec -= nsec;
+    }
+
+    /* Compute the time remaining to wait.
+    tv_usec is certainly positive. */
+    result->tv_sec = x->tv_sec - y->tv_sec;
+    result->tv_usec = x->tv_usec - y->tv_usec;
+
+    /* Return 1 if result is negative. */
+    return x->tv_sec < y->tv_sec;
+}
+
+int metro_run = 1;
+//                      999999999 nearly 1 sec
+//                     1000000000 1 sec
+//                      500000000 1/2 sec
+//                      250000000 1/4
+//                      125000000 1/8
+//                       62500000 1/16
+//                       31250000 1/32
+//                       15625000 1/64
+//                        7812500 1/128
+//                        3906250 1/256
+//                        1953125 1/512
+//                        1000000 1/1000 (ms)
+//                         500000 1/2000 (1/2 ms)
+#define METRO             1000000
+#define DELTA 10
+unsigned int metro_nsec = METRO;
+unsigned int metro_period = METRO / 1000;
+struct timeval metro_tv;
+int metro_res = 0;
+int metro_a = 0;
+int metro_b = 0;
+//int metro_quarter = QUARTER;
+
+int metro(void *arg) {
+    struct timespec t0;
+    struct timespec t1;
+    struct timeval tv0;
+    struct timeval tv1;
+    metro_a = amy_sysclock() + metro_quarter;
+    while (metro_run) {
+        gettimeofday(&tv0, NULL);
+        t0.tv_sec = 0;
+        t0.tv_nsec = metro_nsec;
+        while (metro_run) {
+            thrd_sleep(&t0, &t1);
+            if (t1.tv_nsec > 0) {
+                break;
+            }
+            t0.tv_sec = 0;
+            t0.tv_nsec = t1.tv_nsec;
+        }
+        gettimeofday(&tv1, NULL);
+        metro_res = timeval_subtract(&metro_tv, &tv1, &tv0);
+        if (metro_tv.tv_usec > metro_period) {
+            metro_nsec -= (metro_tv.tv_usec / 4);
+        } else if (metro_tv.tv_usec < metro_period) {
+            metro_nsec += (metro_tv.tv_usec / 4);
+        }
+        if (amy_sysclock() > metro_a) {
+            //write(2, ".", 1);
+            metro_b = metro_a;
+            metro_a = amy_sysclock() + metro_quarter;
+        }
+    }
+    puts("metro done");
+}
+
+void metro_info(void) {
+    printf("usec:%d sleep:%d diff:%d _14:%d\n",
+        metro_tv.tv_usec,
+        metro_nsec,
+        metro_a-metro_b,
+        metro_quarter);
+}
+
+void metro_stop(void) {
+    metro_run = 0;
+}

@@ -5,9 +5,11 @@ bin/rattle: lib/libamy.a lib/librma.a src/main.c src/rattlefy.c
     -Isrc \
     -Iamy/src \
     -Ilinenoise \
+    -Itinycthread/source \
     src/main.c \
     src/rattlefy.c \
     linenoise/linenoise.c \
+    tinycthread/source/tinycthread.c \
     -o bin/rattle \
     -Llib \
     -lrma \
