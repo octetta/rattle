@@ -8,6 +8,14 @@
 #define IDENT_COUNT IDENT_LAST - IDENT_FIRST + 1
 
 #define STORAGE_SIZE 64
+
+#define PAT_COUNT 10
+#define SEQ_LEN 100
+
+extern int location[PAT_COUNT];
+extern int playing[PAT_COUNT];
+extern char pattern[PAT_COUNT][SEQ_LEN][STORAGE_SIZE];
+
 #define QUARTER 250
 
 #define RATIO_SYM ('m')
@@ -33,7 +41,8 @@
 #define USR (0)
 #define SYS (1)
 
-int process(unsigned int now, char *token);
+int unit(unsigned int now, char *token);
+int process(unsigned int now, char *input);
 
 extern char splitter[];
 

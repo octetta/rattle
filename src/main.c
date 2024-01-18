@@ -20,12 +20,56 @@ unsigned int timea = 0;
 unsigned int timeb = 0;
 unsigned int timec = 0;
 
+
 // eventually put old logic for loops here, just mashed a message now
+int looppos = 0;
+int clockcounter = 0;
 void looper(void) {
+    static char first = 1;
+    int i;
+    int j;
+    if (first) {
+        first = 0;
+        for (i=0; i<PAT_COUNT; i++) {
+            location[i] = 0;
+            playing[i] = 0;
+            for (j=0; j<SEQ_LEN; j++) {
+                pattern[i][j][0] = '\0';
+            }
+        }
+        playing[0] = 1;
+        strcpy(pattern[0][0], "v0l1");
+        strcpy(pattern[0][1], "v0l0");
+        strcpy(pattern[0][2], "/");
+        playing[1] = 1;
+        strcpy(pattern[1][0], "v10l1");
+        strcpy(pattern[1][1], "#");
+        strcpy(pattern[1][2], "v10l0");
+        strcpy(pattern[1][3], "#");
+        strcpy(pattern[1][4], "/");
+    }
     timeb = amy_sysclock();
     timec = timeb - timea;
     timea = timeb;
-    amy_play_message("v50l1");
+    for (i=0; i<PAT_COUNT; i++) {
+        if (!playing[i]) continue;
+        int n = location[i];
+        if (strlen(pattern[i][n]) > 0) {
+            if (pattern[i][n][0] == '/') n = 0;
+            if (strlen(pattern[i][n]) > 0) {
+#if 0
+                amy_play_message(pattern[i][n]);
+#else
+                process(timeb, pattern[i][n]);
+#endif
+            }
+            n++;
+            location[i] = n;
+        } else {
+            playing[i] = 0;
+        }
+    }
+    clockcounter++;
 }
 
 // multiplexer between linenoise and looper... needs a fallback for fgets?
@@ -62,6 +106,7 @@ int multiplex(char *input) {
             break;
         } else if (r) {
 #if 0
+#else
             if (p[0].revents & POLLIN) {
                 line = linenoiseEditFeed(&ls);
                 if (line != linenoiseEditMore) break;
@@ -71,7 +116,6 @@ int multiplex(char *input) {
                 int n = read(timing[0], buf, sizeof(buf));
                 if (n > 0) looper();
             }
-#else
 #endif
         } else {
             // timeout
@@ -157,13 +201,8 @@ int main(int argc, char *argv[]) {
 
         if (len == 0) continue;
         
-        char *token = strtok(input, splitter);
+        code = process(mark, input);
 
-        while (token != NULL) {
-            int n = token - input - 1;
-            code = process(mark, token);
-            token = strtok(NULL, splitter);
-        }
     }
 
     amy_live_stop();

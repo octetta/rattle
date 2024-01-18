@@ -14,6 +14,10 @@ int times[RATIO_TOP][RATIO_BOTTOM] = {{-1}};
 char usrvar[IDENT_COUNT][STORAGE_SIZE] = {[0 ... IDENT_COUNT-1] = {[0 ... STORAGE_SIZE-1] = 0}};
 char sysvar[IDENT_COUNT][STORAGE_SIZE] = {[0 ... IDENT_COUNT-1] = {[0 ... STORAGE_SIZE-1] = 0}};
 
+int location[PAT_COUNT];
+int playing[PAT_COUNT];
+char pattern[PAT_COUNT][SEQ_LEN][STORAGE_SIZE];
+
 int usrvar_int[IDENT_COUNT] = {[0 ... IDENT_COUNT-1] = 0};
 double usrvar_fp[IDENT_COUNT] = {[0 ... IDENT_COUNT-1] = 0.0};
 unsigned char usrvar_data[IDENT_COUNT][STORAGE_SIZE] = {[0 ... IDENT_COUNT-1] = {[0 ... STORAGE_SIZE-1] = 0}};
@@ -153,14 +157,16 @@ int query(char *token, int start) {
                 }
                 which++;
                 if (which >= nchan) which = 0;
-                INFO("%c%6d%c ", first, bufs[index][i], last);
+                //INFO("%c%6d%c ", first, bufs[index][i], last);
+                printf("%d ", bufs[index][i]);
                 w++;
                 if (w > 7) {
                     w = 0;
-                    INFO("\n");
+                    //INFO("\n");
                 }
             }
-            if (w) INFO("\n");
+            //if (w) INFO("\n");
+            printf("\n");
             break;
         case RATIO_SYM:
             ratio(1,1);
@@ -244,7 +250,7 @@ int setgetusr(char *token, int start) {
     return 1;
 }
 
-int process(unsigned int now, char *token) {
+int unit(unsigned int now, char *token) {
     char output[1024];
     int tflag = 0;
     int rflag = 0;
@@ -344,7 +350,7 @@ int process(unsigned int now, char *token) {
         }
     }
     //VERBOSE("(%d/%d)=<%s>\n", now, vcnt, final);
-    VERBOSE("-> amy {%s}\n", final);
+    //VERBOSE("-> amy {%s}\n", final);
     
     amy_play_message(final);
     
@@ -352,6 +358,17 @@ int process(unsigned int now, char *token) {
 }
 
 char splitter[] = { SEPARATOR, '\n', '\0' };
+
+int process(unsigned int mark, char *input) {
+    char *save;
+    char *token = strtok_r(input, splitter, &save);
+    int code = 1;
+    while (token != NULL) {
+        code = unit(mark, token);
+        token = strtok_r(NULL, splitter, &save);
+    }
+    return code;
+}
 
 static struct sockaddr_in serve;
 
