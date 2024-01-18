@@ -2,6 +2,9 @@
 #include <string.h>
 #include <sys/time.h>
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+
 #include "amy.h"
 #include "rma.h"
 #include "rattlefy.h"
@@ -349,3 +352,19 @@ int process(unsigned int now, char *token) {
 }
 
 char splitter[] = { SEPARATOR, '\n', '\0' };
+
+static struct sockaddr_in serve;
+
+int udp_open(int port) {
+    int sock = socket(AF_INET, SOCK_DGRAM, 0);
+    int opt = 1;
+    setsockopt(sock, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(int));
+    bzero(&serve, sizeof(serve)); 
+    serve.sin_family = AF_INET;
+    serve.sin_addr.s_addr = htonl(INADDR_ANY);
+    serve.sin_port = htons(port);
+    if (bind(sock, (struct sockaddr *)&serve, sizeof(serve)) >= 0) {
+        return sock;
+    }
+    return -1;
+}

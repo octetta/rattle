@@ -39,7 +39,6 @@ extern char splitter[];
 
 //
 
-int metro(void *arg);
-void metro_info(void);
-void metro_stop(void);
+int udp_open(int port);
+
 #endif
