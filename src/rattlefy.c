@@ -172,7 +172,7 @@ int query(char *token, int start) {
             ratio(1,1);
             for (int i=0; i<RATIO_TOP; i++) {
                 for (int j=0; j<RATIO_BOTTOM; j++) {
-                    INFO("_%d%d => %-5d ; ", i+1, j+1, ratio(i+1, j+1));
+                    INFO("_%d%d=%-4d ", i+1, j+1, ratio(i+1, j+1));
                 }
                 INFO("\n");
             }
@@ -194,21 +194,65 @@ static int _setter(int us, char ident, char *val) {
     return 0;
 }
 
+int actionpattern(char *token, int start) {
+    char ident = token[start+1];
+    char action = token[start+2];
+    int pat = ident - '0';
+    switch (action) {
+        case '\0':
+            int step = 0;
+            while (1) {
+                char *s = pattern[pat][step];
+                if (*s == '\0') break;
+                printf(":%d:%d=%s\n", pat, step, s);
+                step++;
+                if (step >= SEQ_LEN) break;
+            }
+            break;
+        case ':':
+            if (isnumber(token[start+3])) {
+                int next;
+                int step = intgrabber(token + start + 3, &next);
+                if (step < SEQ_LEN) {
+                    char *s = pattern[pat][step];
+                    char then = token[start + 3 + next];
+                    switch (then) {
+                        case '\0':
+                            break;
+                        case '=':
+                            setpattern(pat, step, token+3+next+1);
+                            break;
+                    }
+                }
+            }
+            break;
+    }
+    return 1;
+}
+
 int setgetsys(char *token, int start) {
     char ident = token[start+1];
     if (ident == '\0') {
         INFO("show all\n");
         return 1;
     }
+    if (isnumber(ident)) return actionpattern(token, start);
     if (!isident(ident)) return 1;
     int index = ident - IDENT_FIRST;
     char action = token[start+2];
     if (action == '=') {
         char *val = token+3;
         _setter(SYS, ident, val);
+        int n;
         switch (ident) {
+            case 'z':
+                n = intgrabber(val, NULL);
+                if (n > 0) {
+                    set_frame_match(n);
+                }
+                break;
             case RATIO_SYM:
-                int n = intgrabber(val, NULL);
+                n = intgrabber(val, NULL);
                 if (n > 0) {
                     init_ratio(n);
                     sprintf(sysvar[index], "%d", n);
@@ -360,13 +404,14 @@ int unit(unsigned int now, char *token) {
 char splitter[] = { SEPARATOR, '\n', '\0' };
 
 int process(unsigned int mark, char *input) {
-    char *save;
-    char *token = strtok_r(input, splitter, &save);
+    char *copy = strdup(input);
+    char *token = strtok(copy, splitter);
     int code = 1;
     while (token != NULL) {
         code = unit(mark, token);
-        token = strtok_r(NULL, splitter, &save);
+        token = strtok(NULL, splitter);
     }
+    free(copy);
     return code;
 }
 
@@ -384,4 +429,25 @@ int udp_open(int port) {
         return sock;
     }
     return -1;
+}
+
+void setpattern(int pat, int step, char *s) {
+    if (pat >= 0 && pat < PAT_COUNT && step >= 0 && step < SEQ_LEN) {
+        strncpy(pattern[pat][step], s, STORAGE_SIZE);
+        for (int i=0; i<STORAGE_SIZE; i++) {
+            char c = pattern[pat][step][i];
+            if (c == '\0') break;
+            if (c == '&') pattern[pat][step][i] = ';';
+        }
+    }
+}
+void setstep(int pat, int step) {
+    if (pat >= 0 && pat < PAT_COUNT && step >= 0 && step < SEQ_LEN) {
+        location[pat] = step;
+    }
+}
+void setplay(int pat, int play) {
+    if (pat >= 0 && pat < PAT_COUNT) {
+        playing[pat] = play;
+    }
 }

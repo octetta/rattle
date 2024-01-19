@@ -50,4 +50,8 @@ extern char splitter[];
 
 int udp_open(int port);
 
+void setpattern(int pat, int step, char *s);
+void setstep(int pat, int step);
+void setplay(int pat, int play);
+
 #endif

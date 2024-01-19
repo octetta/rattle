@@ -72,6 +72,10 @@ void set_frame_match(unsigned int n) {
     signal_frame_match = n;
 }
 
+unsigned int get_frame_match(void) {
+    return signal_frame_match;
+}
+
 void capture_start(short *buf, unsigned int frames, short *channels) {
     if (channels) *channels = AMY_NCHANS;
     capture_active = 0;
@@ -91,16 +95,29 @@ void capture_stop(void) {
     capture_active = 0;
 }
 
+unsigned int cb_frame_count = 0;
+
 static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frame_count) {
     // Different audio devices on mac have wildly different frame_count_maxes, so we have to be ok with 
     // an audio buffer that is not an even multiple of BLOCK_SIZE. my iMac's speakers were always 512 frames, but
     // external headphones on a MBP is 432 or 431, and airpods were something like 1440.
 
     //printf("AMY_BLOCK_SIZE:%d frame_count:%d leftover_samples:%d\n", AMY_BLOCK_SIZE, frame_count, leftover_samples);
+
+    cb_frame_count = frame_count;
+
     short int *poke = (short *)pOutput;
 
     // First send over the leftover samples, if any
     int ptr = 0;
+
+    if (signal_fd >= 0) {
+        signal_frame_count++;
+        if (signal_frame_count > signal_frame_match) {
+            write(signal_fd, ".", 1);
+            signal_frame_count = 0;
+        }
+    }
 
     for(uint16_t frame=0;frame<leftover_samples;frame++) {
         for(uint8_t c=0;c<pDevice->playback.channels;c++) {
@@ -108,13 +125,6 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
             if (capture_active) {
                 capture[capture_rcv_frames++] = leftover_buf[AMY_NCHANS * frame + c];
                 if (capture_rcv_frames >= capture_req_frames) capture_active = 0;
-            }
-            if (signal_fd >= 0) {
-                signal_frame_count++;
-                if (signal_frame_count > signal_frame_match) {
-                    write(signal_fd, ".", 1);
-                    signal_frame_count = 0;
-                }
             }
         }
     }
@@ -131,13 +141,6 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
                 if (capture_active) {
                     capture[capture_rcv_frames++] = buf[AMY_NCHANS * frame + c];
                     if (capture_rcv_frames >= capture_req_frames) capture_active = 0;
-                }
-                if (signal_fd >= 0) {
-                    signal_frame_count++;
-                    if (signal_frame_count > signal_frame_match) {
-                        write(signal_fd, ".", 1);
-                        signal_frame_count = 0;
-                    }
                 }
             }
         }

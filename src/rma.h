@@ -5,6 +5,8 @@
 #include "amy.h"
 #include <pthread.h>
 
+extern unsigned int cb_frame_count;
+
 extern int16_t amy_channel;
 extern int16_t amy_device_id;
 extern uint8_t amy_running;
@@ -17,4 +19,5 @@ unsigned int captured_frames(void);
 void capture_stop(void);
 void set_signal_fd(int fd);
 void set_frame_match(unsigned int n);
+unsigned int get_frame_match(void);
 #endif

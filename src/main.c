@@ -1,4 +1,6 @@
 #include <stdio.h>
+#include <string.h>
+#include <sys/time.h>
 #if 0
 #include <sys/select.h>
 #else
@@ -16,10 +18,34 @@ static int use_linenoise = 1;
 int timing[2];
 
 // measure the latency between frame match messages from AMY
-unsigned int timea = 0;
-unsigned int timeb = 0;
-unsigned int timec = 0;
+unsigned int amytimea = 0;
+unsigned int amytimeb = 0;
+unsigned int interval_amy = 0;
+unsigned int loop_amy = 0;
+// same for os time
+struct timeval ostime0;
+struct timeval ostime1;
+struct timeval ostime2;
+struct timeval loop_os;
+struct timeval interval_os;
 
+static int timeval_subtract(struct timeval *result, struct timeval *x, struct timeval *y) {
+    if (x->tv_usec < y->tv_usec) {
+        int nsec = (y->tv_usec - x->tv_usec) / 1000000 + 1;
+        y->tv_usec -= 1000000 * nsec;
+        y->tv_sec += nsec;
+    }
+    if (x->tv_usec - y->tv_usec > 1000000) {
+        int nsec = (x->tv_usec - y->tv_usec) / 1000000;
+        y->tv_usec += 1000000 * nsec;
+        y->tv_sec -= nsec;
+    }
+
+    result->tv_sec = x->tv_sec - y->tv_sec;
+    result->tv_usec = x->tv_usec - y->tv_usec;
+
+    return x->tv_sec < y->tv_sec;
+}
 
 // eventually put old logic for loops here, just mashed a message now
 int looppos = 0;
@@ -31,26 +57,31 @@ void looper(void) {
     if (first) {
         first = 0;
         for (i=0; i<PAT_COUNT; i++) {
-            location[i] = 0;
-            playing[i] = 0;
+            setstep(i, 0);
+            setplay(i, 0);
             for (j=0; j<SEQ_LEN; j++) {
-                pattern[i][j][0] = '\0';
+                setpattern(i, j, "");
             }
         }
-        playing[0] = 1;
-        strcpy(pattern[0][0], "v0l1");
-        strcpy(pattern[0][1], "v0l0");
-        strcpy(pattern[0][2], "/");
-        playing[1] = 1;
-        strcpy(pattern[1][0], "v10l1");
-        strcpy(pattern[1][1], "#");
-        strcpy(pattern[1][2], "v10l0");
-        strcpy(pattern[1][3], "#");
-        strcpy(pattern[1][4], "/");
+        //setpattern(0, 0, "v0l1&_12v0l0");
+        //setpattern(0, 1, "v0l1&_12v0l0");
+        setpattern(0, 0, "v0l1");
+        setpattern(0, 1, "v0l0");
+        setpattern(0, 2, "/");
+        //setpattern(1, 0, "v10l1");
+        //setpattern(1, 1, "#");
+        //setpattern(1, 2, "v10l0");
+        //setpattern(1, 3, "#");
+        //setpattern(1, 4, "/");
+        
+        setstep(0, 0);
+        setstep(1, 0);
+
+        setplay(0, 1);
+        setplay(1, 1);
     }
-    timeb = amy_sysclock();
-    timec = timeb - timea;
-    timea = timeb;
+    amytimeb = amy_sysclock();
+    gettimeofday(&ostime1, NULL);
     for (i=0; i<PAT_COUNT; i++) {
         if (!playing[i]) continue;
         int n = location[i];
@@ -60,7 +91,7 @@ void looper(void) {
 #if 0
                 amy_play_message(pattern[i][n]);
 #else
-                process(timeb, pattern[i][n]);
+                process(amytimeb, pattern[i][n]);
 #endif
             }
             n++;
@@ -69,6 +100,13 @@ void looper(void) {
             playing[i] = 0;
         }
     }
+    loop_amy = amy_sysclock() - amytimeb;
+    gettimeofday(&ostime2, NULL);
+    interval_amy = amytimeb - amytimea;
+    amytimea = amytimeb;
+    timeval_subtract(&loop_os, &ostime2, &ostime1); // time from top of pattern to bottom
+    timeval_subtract(&interval_os, &ostime1, &ostime0); // time from last looper call
+    memcpy(&ostime0, &ostime1, sizeof(struct timeval));
     clockcounter++;
 }
 
@@ -170,7 +208,7 @@ int main(int argc, char *argv[]) {
     pipe(timing);
 
     set_signal_fd(timing[1]);
-    set_frame_match(441*40);
+    set_frame_match(12);
 
     amy_start(/* cores= */ 1, /* reverb= */ 0, /* chorus= */ 0);
     amy_live_start();
@@ -197,7 +235,14 @@ int main(int argc, char *argv[]) {
         
         mark = amy_sysclock();
         
-        printf("timec:%d\n", timec);
+        printf("interval:%d/%f loop:%d/%f fc:%d fm:%d bs:%d nc:%d sr:%d\n",
+            interval_amy,
+            (double)interval_os.tv_usec/1000.0,
+            loop_amy,
+            (double)loop_os.tv_usec/1000.0,
+            cb_frame_count,
+            get_frame_match(),
+            AMY_BLOCK_SIZE, AMY_NCHANS, AMY_SAMPLE_RATE);
 
         if (len == 0) continue;
         
