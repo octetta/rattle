@@ -11,16 +11,19 @@
 
 int times[RATIO_TOP][RATIO_BOTTOM] = {{-1}};
 
-char usrvar[IDENT_COUNT][STORAGE_SIZE] = {[0 ... IDENT_COUNT-1] = {[0 ... STORAGE_SIZE-1] = 0}};
-char sysvar[IDENT_COUNT][STORAGE_SIZE] = {[0 ... IDENT_COUNT-1] = {[0 ... STORAGE_SIZE-1] = 0}};
-
 int location[PAT_COUNT];
 int playing[PAT_COUNT];
 char pattern[PAT_COUNT][SEQ_LEN][STORAGE_SIZE];
 
+char usrvar[IDENT_COUNT][STORAGE_SIZE] = {[0 ... IDENT_COUNT-1] = {[0 ... STORAGE_SIZE-1] = 0}};
 int usrvar_int[IDENT_COUNT] = {[0 ... IDENT_COUNT-1] = 0};
 double usrvar_fp[IDENT_COUNT] = {[0 ... IDENT_COUNT-1] = 0.0};
 unsigned char usrvar_data[IDENT_COUNT][STORAGE_SIZE] = {[0 ... IDENT_COUNT-1] = {[0 ... STORAGE_SIZE-1] = 0}};
+
+char sysvar[IDENT_COUNT][STORAGE_SIZE] = {[0 ... IDENT_COUNT-1] = {[0 ... STORAGE_SIZE-1] = 0}};
+int sysvar_int[IDENT_COUNT] = {[0 ... IDENT_COUNT-1] = 0};
+double sysvar_fp[IDENT_COUNT] = {[0 ... IDENT_COUNT-1] = 0.0};
+unsigned char sysvar_data[IDENT_COUNT][STORAGE_SIZE] = {[0 ... IDENT_COUNT-1] = {[0 ... STORAGE_SIZE-1] = 0}};
 
 void init_ratio(int quarter) {
     for (int i=0; i<RATIO_TOP; i++) {
@@ -39,7 +42,7 @@ int ratio(int a, int b) {
 
     if (times[0][0] == -1) {
         init_ratio(QUARTER);
-        sprintf(sysvar[RATIO_INDEX], "%d", QUARTER);
+        sprintf(sysvar[METRO_INDEX], "%d", QUARTER);
     }
     return times[a-1][b-1];
 }
@@ -168,7 +171,7 @@ int query(char *token, int start) {
             //if (w) INFO("\n");
             printf("\n");
             break;
-        case RATIO_SYM:
+        case METRO_SYM:
             ratio(1,1);
             for (int i=0; i<RATIO_TOP; i++) {
                 for (int j=0; j<RATIO_BOTTOM; j++) {
@@ -184,12 +187,23 @@ int query(char *token, int start) {
     return 1;
 }
 
-static int _setter(int us, char ident, char *val) {
+int raw_getter_int(int us, char ident) {
+    int var = ident - IDENT_FIRST;
+    if (us == USR) return usrvar_int[var];
+    if (us == SYS) return sysvar_int[var];
+    return -1;
+}
+
+int raw_setter(int us, char ident, char *val) {
     int var = ident - IDENT_FIRST;
     if (us == USR) {
         strcpy(usrvar[var], val);
+        usrvar_int[var] = strtol(val, NULL, 10);
+        usrvar_fp[var] = strtod(val, NULL);
     } else if (us == SYS) {
         strcpy(sysvar[var], val);
+        sysvar_int[var] = strtol(val, NULL, 10);
+        sysvar_fp[var] = strtod(val, NULL);
     }
     return 0;
 }
@@ -204,12 +218,20 @@ int actionpattern(char *token, int start) {
             while (1) {
                 char *s = pattern[pat][step];
                 if (*s == '\0') break;
-                printf(":%d:%d=%s\n", pat, step, s);
+                printf(":%d/%d=%s\n", pat, step, s);
                 step++;
                 if (step >= SEQ_LEN) break;
             }
             break;
-        case ':':
+        case '+':
+            printf("play %d\n", pat);
+            setplay(pat, 1);
+            break;
+        case '-':
+            printf("stop %d\n", pat);
+            setplay(pat, 0);
+            break;
+        case '/':
             if (isnumber(token[start+3])) {
                 int next;
                 int step = intgrabber(token + start + 3, &next);
@@ -242,16 +264,10 @@ int setgetsys(char *token, int start) {
     char action = token[start+2];
     if (action == '=') {
         char *val = token+3;
-        _setter(SYS, ident, val);
+        raw_setter(SYS, ident, val);
         int n;
         switch (ident) {
-            case 'z':
-                n = intgrabber(val, NULL);
-                if (n > 0) {
-                    set_frame_match(n);
-                }
-                break;
-            case RATIO_SYM:
+            case METRO_SYM:
                 n = intgrabber(val, NULL);
                 if (n > 0) {
                     init_ratio(n);

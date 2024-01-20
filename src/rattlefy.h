@@ -18,8 +18,8 @@ extern char pattern[PAT_COUNT][SEQ_LEN][STORAGE_SIZE];
 
 #define QUARTER 250
 
-#define RATIO_SYM ('m')
-#define RATIO_INDEX (RATIO_SYM - IDENT_FIRST)
+#define METRO_SYM ('m')
+#define METRO_INDEX (METRO_SYM - IDENT_FIRST)
 
 #define INFO printf
 #define VERBOSE printf
@@ -53,5 +53,8 @@ int udp_open(int port);
 void setpattern(int pat, int step, char *s);
 void setstep(int pat, int step);
 void setplay(int pat, int play);
+
+int raw_setter(int us, char ident, char *val);
+int raw_getter_int(int us, char ident);
 
 #endif

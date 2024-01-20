@@ -18,8 +18,8 @@
     #define MA_NO_RUNTIME_LINKING
 #endif
 #define MINIAUDIO_IMPLEMENTATION
-//#define MA_NO_PULSEAUDIO
-//#define MA_NO_JACK
+#define MA_NO_PULSEAUDIO
+#define MA_NO_JACK
 
 #include "miniaudio.h"
 
@@ -58,28 +58,15 @@ void amy_print_devices() {
     ma_context_uninit(&context);
 }
 
-static short *capture = NULL;
+static short *capture_buf = NULL;
 static int capture_active = 0;
 static unsigned int capture_req_frames = 0;
 static unsigned int capture_rcv_frames = 0;
-static unsigned int signal_frame_count = 0;
-static unsigned int signal_frame_match = 441*250;
-static int signal_fd = -1;
-void set_signal_fd(int fd) {
-    signal_fd = fd;
-}
-void set_frame_match(unsigned int n) {
-    signal_frame_match = n;
-}
-
-unsigned int get_frame_match(void) {
-    return signal_frame_match;
-}
 
 void capture_start(short *buf, unsigned int frames, short *channels) {
     if (channels) *channels = AMY_NCHANS;
     capture_active = 0;
-    capture = buf;
+    capture_buf = buf;
     if (frames > 0) {
         capture_rcv_frames = 0;
         capture_req_frames = frames;
@@ -97,6 +84,13 @@ void capture_stop(void) {
 
 unsigned int cb_frame_count = 0;
 
+void capture(short n) {
+    if (capture_active) {
+        capture_buf[capture_rcv_frames++] = n;
+        if (capture_rcv_frames >= capture_req_frames) capture_active = 0;
+    }
+}
+
 static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frame_count) {
     // Different audio devices on mac have wildly different frame_count_maxes, so we have to be ok with 
     // an audio buffer that is not an even multiple of BLOCK_SIZE. my iMac's speakers were always 512 frames, but
@@ -111,21 +105,11 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
     // First send over the leftover samples, if any
     int ptr = 0;
 
-    if (signal_fd >= 0) {
-        signal_frame_count++;
-        if (signal_frame_count > signal_frame_match) {
-            write(signal_fd, ".", 1);
-            signal_frame_count = 0;
-        }
-    }
-
     for(uint16_t frame=0;frame<leftover_samples;frame++) {
         for(uint8_t c=0;c<pDevice->playback.channels;c++) {
-            poke[ptr++] = leftover_buf[AMY_NCHANS * frame + c];
-            if (capture_active) {
-                capture[capture_rcv_frames++] = leftover_buf[AMY_NCHANS * frame + c];
-                if (capture_rcv_frames >= capture_req_frames) capture_active = 0;
-            }
+            short n = leftover_buf[AMY_NCHANS * frame + c];
+            poke[ptr++] = n;
+            capture(n);
         }
     }
 
@@ -137,11 +121,9 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
         int16_t * buf = amy_simple_fill_buffer();
         for(uint16_t frame=0;frame<AMY_BLOCK_SIZE;frame++) {
             for(uint8_t c=0;c<pDevice->playback.channels;c++) {
-                poke[ptr++] = buf[AMY_NCHANS * frame + c];
-                if (capture_active) {
-                    capture[capture_rcv_frames++] = buf[AMY_NCHANS * frame + c];
-                    if (capture_rcv_frames >= capture_req_frames) capture_active = 0;
-                }
+                short n = buf[AMY_NCHANS * frame + c];
+                poke[ptr++] = n;
+                capture(n);
             }
         }
     } 
@@ -152,7 +134,9 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
         int16_t * buf = amy_simple_fill_buffer();
         for(uint16_t frame=0;frame<still_need;frame++) {
             for(uint8_t c=0;c<pDevice->playback.channels;c++) {
-                poke[ptr++] = buf[AMY_NCHANS * frame + c];
+                short n = buf[AMY_NCHANS * frame + c];
+                poke[ptr++] = n;
+                capture(n);
             }
         }
         memcpy(leftover_buf, buf+(still_need*AMY_NCHANS), (AMY_BLOCK_SIZE - still_need)*2*AMY_NCHANS);
