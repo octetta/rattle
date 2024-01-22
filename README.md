@@ -5,8 +5,13 @@ Based on AMY https://github.com/bwhitman/amy
 ## Build
 
 ```
+# this
+git clone https://github.com/octetta/rattle.git --recursive
+# or this
+git clone https://github.com/octetta/rattle.git
 git submodule init
 git submodule update
+# then
 make
 ```
 

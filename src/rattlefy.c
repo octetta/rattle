@@ -81,7 +81,7 @@ char isident(char ident) {
     return 1;
 }
 
-char isnumber(char c) {
+char my_isnumber(char c) {
     switch (c) {
         case '0': case '1': case '2': case '3': case '4':
         case '5': case '6': case '7': case '8': case '9':
@@ -100,7 +100,7 @@ int other(char *token, int start) {
             bptr++;
             if (bptr >= BLEN) bptr = 0;
             if (bufs[bptr]) free(bufs[bptr]);
-            if (isnumber(token[1])) {
+            if (my_isnumber(token[1])) {
                 frames = intgrabber(token+1, NULL);
             } else {
                 frames = CLEN;
@@ -135,9 +135,9 @@ int delayer(char *token, int start) {
     if (ident == '\0') {
         loader_ms(sysvar_int[METRO_INDEX]);
     }
-    if (isnumber(ident)) {
+    if (my_isnumber(ident)) {
         char *val = token+start+1;
-        int next;
+        unsigned int next;
         int n = intgrabber(val, &next);
         loader_ms(n);
     }
@@ -152,7 +152,7 @@ int setmod(char *token, int start) {
             printf("%%%d=%d\n", pat, modulus[pat]);
         }
     }
-    if (isnumber(ident)) {
+    if (my_isnumber(ident)) {
         char *val = token+start+2;
         int pat = ident - '0';
         switch (*val) {
@@ -161,8 +161,8 @@ int setmod(char *token, int start) {
                 break;
             case '=':
                 val++;
-                if (isnumber(*val)) {
-                    int next;
+                if (my_isnumber(*val)) {
+                    unsigned int next;
                     int n = intgrabber(val, &next);
                     if (n > 0) {
                         modulus[pat] = n;
@@ -194,7 +194,7 @@ int query(char *token, int start) {
             }
             break;
         case 'd': // show capture data
-            int w = 0;
+			{
             unsigned int frames = 0;
             unsigned int index = bptr;
             short nchan = AMY_NCHANS;
@@ -202,7 +202,7 @@ int query(char *token, int start) {
             if (c == '\0') {
                 frames = captured_frames();
             } else {
-                if (isnumber(c)) {
+                if (my_isnumber(c)) {
                     index = c - '0';
                     if (index < BLEN) {
                         frames = lens[index];
@@ -211,32 +211,11 @@ int query(char *token, int start) {
                 } else frames = 0;
             }
             INFO("?d%c / [%d] (%d) = %d\n", c, index, nchan, frames);
-            char first = ' ';
-            char last = ' ';
-            int which = 0;
             for (unsigned int i=0; i<frames; i++) {
-                if (which == 0) {
-                    first = '[';
-                    last = ',';
-                } else if (which == nchan-1) {
-                    first = ' ';
-                    last = ']';
-                } else {
-                    first = ' ';
-                    last = ',';
-                }
-                which++;
-                if (which >= nchan) which = 0;
-                //INFO("%c%6d%c ", first, bufs[index][i], last);
                 printf("%d ", bufs[index][i]);
-                w++;
-                if (w > 7) {
-                    w = 0;
-                    //INFO("\n");
-                }
             }
-            //if (w) INFO("\n");
             printf("\n");
+			}
             break;
         case METRO_SYM:
             ratio(1,1);
@@ -312,8 +291,8 @@ int actionpattern(char *token, int start) {
             setplay(pat, 1);
             break;
         case '/':
-            if (isnumber(token[start+3])) {
-                int next;
+            if (my_isnumber(token[start+3])) {
+                unsigned int next;
                 int step = intgrabber(token + start + 3, &next);
                 if (step < SEQ_LEN) {
                     char *s = pattern[pat][step];
@@ -347,7 +326,7 @@ int setgetsys(char *token, int start) {
             showpattern(pat);
         }
     }
-    if (isnumber(ident)) return actionpattern(token, start);
+    if (my_isnumber(ident)) return actionpattern(token, start);
     if (!isident(ident)) return 1;
     int index = ident - IDENT_FIRST;
     char action = token[start+2];
@@ -651,7 +630,7 @@ void looper(unsigned int now) {
     clockcounter++;
 }
 
-#ifdef MACFAKETIMER
+#ifdef __APPLE__
 #include "macos-timer.h"
 #endif
 

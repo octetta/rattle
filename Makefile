@@ -1,5 +1,12 @@
 all: bin lib bin/rattle
 
+ifeq ($(shell uname), Linux)
+LL = -lrt
+else
+CC = clang
+LL = -framework AudioUnit -framework CoreAudio -framework CoreFoundation 
+endif
+
 bin/rattle: lib/libamy.a lib/librma.a src/main.c src/rattlefy.c
 	$(CC) \
     -Isrc \
@@ -13,6 +20,8 @@ bin/rattle: lib/libamy.a lib/librma.a src/main.c src/rattlefy.c
     -lrma \
     -lamy \
     -lm \
+	-lpthread \
+	$(LL) \
     #
 
 lib/librma.a: \
