@@ -15,13 +15,13 @@ bin/rattle: lib/libamy.a lib/librma.a src/main.c src/rattlefy.c
     src/main.c \
     src/rattlefy.c \
     linenoise/linenoise.c \
-    -o bin/rattle \
     -Llib \
     -lrma \
     -lamy \
     -lm \
-	-lpthread \
-	$(LL) \
+    -lpthread \
+    $(LL) \
+    -o bin/rattle \
     #
 
 lib/librma.a: \
