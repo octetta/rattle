@@ -35,6 +35,7 @@ extern char pattern[PAT_COUNT][SEQ_LEN][STORAGE_SIZE];
 #define PATCH     '>'
 #define PATTERN   '/'
 #define COMMENT   '#'
+#define DELAY     '~'
 
 #define PROMPT    "# "
 
@@ -69,5 +70,7 @@ extern unsigned int loop_amy;
 extern struct timeval loop_os;
 
 void loader(char *use_file);
+
+void set_loader_ms(void *fn);
 
 #endif

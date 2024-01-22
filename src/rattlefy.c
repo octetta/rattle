@@ -15,7 +15,7 @@ int times[RATIO_TOP][RATIO_BOTTOM] = {{-1}};
 
 int location[PAT_COUNT];
 int playing[PAT_COUNT];
-int modulus[PAT_COUNT] = {[0 ... 9] = 1};
+int modulus[PAT_COUNT] = {[0 ... 9] = 4};
 char pattern[PAT_COUNT][SEQ_LEN][STORAGE_SIZE];
 
 int get_modulus(int n) {
@@ -110,6 +110,36 @@ int other(char *token, int start) {
                 capture_start(bufs[bptr], frames, NULL);
             }
             break;
+    }
+    return 1;
+}
+
+void basic_ms(int ms) {
+    struct timespec dur;
+    struct timespec rem;
+    int sec = ms / 1000;
+    int remaining_ms = ms - (sec * 1000);
+    dur.tv_sec = sec;
+    dur.tv_nsec = remaining_ms * 1000000;
+    int n = nanosleep(&dur, &rem);
+}
+
+void (*loader_ms)(int ms) = basic_ms;
+
+void set_loader_ms(void *fn) {
+    loader_ms = fn;
+}
+
+int delayer(char *token, int start) {
+    char ident = token[start+1];
+    if (ident == '\0') {
+        loader_ms(sysvar_int[METRO_INDEX]);
+    }
+    if (isnumber(ident)) {
+        char *val = token+start+1;
+        int next;
+        int n = intgrabber(val, &next);
+        loader_ms(n);
     }
     return 1;
 }
@@ -399,19 +429,15 @@ int unit(unsigned int now, char *token) {
     switch (token[start]) {
         case '%':
             return setmod(token, start);
-            break;
         case QUERY: // query
             //VERBOSE("QUERY\n");
             return query(token, start);
-            break;
         case VARIABLE: // user
             //VERBOSE("VARIABLE\n");
             return setgetusr(token, start);
-            break;
         case SETTING: // system
             //VERBOSE("SETTING\n");
             return setgetsys(token, start);
-            break;
         case 't':
             //VERBOSE("ABSTIME\n");
             tflag = 1;
@@ -427,11 +453,12 @@ int unit(unsigned int now, char *token) {
         case CAPTURE:
             //VERBOSE("OTHER\n");
             return other(token, start);
-            break;
         case COMMENT:
             //VERBOSE("COMMENT\n");
             return 1;
-            break;
+        case DELAY:
+            return delayer(token, start);
+            return 1;
     }
 
     if (tflag || rflag) {
@@ -680,6 +707,7 @@ void motor_init(int ms) {
     motor_period.it_interval.tv_nsec = nsec;
     timer_settime(motor_timer, 0, &motor_period, NULL);
 }
+
 
 void loader(char *use_file) {
     FILE *in = NULL;

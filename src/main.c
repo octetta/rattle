@@ -17,6 +17,34 @@
 static int use_linenoise = 1;
 // multiplexer between linenoise and looper... needs a fallback for fgets?
 
+int serve_fd = -1;
+
+void poll_ms(int ms) {
+    while (1) {
+        int r;
+        struct pollfd p[1];
+        p[0].fd = serve_fd;
+        p[0].events = POLLIN;
+        r = poll(p, 1, ms);
+        if (r == -1) {
+            break;
+        } else if (r) {
+            if (p[0].revents & POLLIN) {
+                char dump[1025];
+                int n = read(p[0].fd, dump, sizeof(dump)-1);
+                if (n > 0) {
+                    dump[n] = '\0';
+                    unsigned int mark = amy_sysclock();
+                    process(mark, dump);
+                }
+            }
+        } else {
+            // timeout
+            break;
+        }
+    }
+}
+
 int multiplex(char *input) {
     char *line = NULL;
     struct linenoiseState ls;
@@ -34,11 +62,12 @@ int multiplex(char *input) {
         int maxfd = ls.ifd;
         r = select(maxfd+1, &readfds, NULL, NULL, &tv);
 #else
-        struct pollfd p[1];
+        struct pollfd p[2];
         p[0].fd = ls.ifd;
         p[0].events = POLLIN;
-        //p[1].fd = serve_fd;
-        r = poll(p, 1, 1000);
+        p[1].fd = serve_fd;
+        p[1].events = POLLIN;
+        r = poll(p, 2, 1000);
 #endif
         if (r == -1) {
             printf("multiplex failed\n");
@@ -50,6 +79,15 @@ int multiplex(char *input) {
             if (p[0].revents & POLLIN) {
                 line = linenoiseEditFeed(&ls);
                 if (line != linenoiseEditMore) break;
+            }
+            if (p[1].revents & POLLIN) {
+                char dump[1025];
+                int n = read(p[1].fd, dump, sizeof(dump)-1);
+                if (n > 0) {
+                    dump[n] = '\0';
+                    unsigned int mark = amy_sysclock();
+                    process(mark, dump);
+                }
             }
 #endif
         } else {
@@ -68,11 +106,16 @@ int multiplex(char *input) {
     return 0;
 }
 
+int udp_port = 8405;
+
 int main(int argc, char *argv[]) {
     int opt;
     char *use_file = NULL;
-    while ((opt = getopt(argc, argv, ":d:lhRf:")) != -1) {
+    while ((opt = getopt(argc, argv, ":d:lhRf:u:")) != -1) {
         switch(opt) { 
+            case 'u':
+                udp_port = atoi(optarg);
+                break;
             case 'f':
                 use_file = optarg;
                 break;
@@ -102,7 +145,12 @@ int main(int argc, char *argv[]) {
         } 
     }
 
-    int serve_fd = udp_open(8405);
+    serve_fd = udp_open(udp_port);
+    if (serve_fd < 0) {
+        printf("can't open udp port %d\n", udp_port);
+        perror("udp_open");
+        return 1;
+    }
     
     raw_setter(SYS, 'm', "250");
     init_looper();
@@ -115,6 +163,8 @@ int main(int argc, char *argv[]) {
 
     int code = 1;
     
+    set_loader_ms(poll_ms);
+
     if (use_file) {
         loader(use_file);
     }
