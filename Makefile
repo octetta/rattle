@@ -1,7 +1,7 @@
 all: bin lib bin/rattle
 
 ifeq ($(shell uname), Linux)
-LL = -lrt -ldl
+LL = -lrt -ldl -latomic
 else
 CC = clang
 LL = -framework AudioUnit -framework CoreAudio -framework CoreFoundation 
@@ -20,7 +20,6 @@ bin/rattle: lib/libamy.a lib/librma.a src/main.c src/rattlefy.c
     -lrma \
     -lamy \
     -lm \
-    -latomic \
 	-lpthread \
 	$(LL) \
     #
