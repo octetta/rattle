@@ -190,14 +190,6 @@ int main(int argc, char *argv[]) {
         
         mark = amy_sysclock();
         
-        printf("interval:%d/%f loop:%d/%f fc:%d BS:%d NC:%d SR:%d\n",
-            interval_amy,
-            (double)interval_os.tv_usec/1000.0,
-            loop_amy,
-            (double)loop_os.tv_usec/1000.0,
-            cb_frame_count,
-            AMY_BLOCK_SIZE, AMY_NCHANS, AMY_SAMPLE_RATE);
-
         if (len == 0) continue;
         
         code = process(mark, input);

@@ -176,6 +176,9 @@ int setmod(char *token, int start) {
 
 int query(char *token, int start) {
     switch (token[start+1]) {
+        case 't':
+            time_info();
+            break;
         case 'c':
             INFO("%" PRIu32 "\n", amy_sysclock());
             break;
@@ -595,10 +598,22 @@ void init_looper(void) {
     }
 }
 
+int motor_interval = -1;
+
+void time_info(void) {
+    printf("interval:%d/%g loop:%d/%g drift:%d/%g fc:%d BS:%d NC:%d SR:%d\n",
+        interval_amy,
+        (double)interval_os.tv_usec/1000.0,
+        loop_amy,
+        (double)loop_os.tv_usec/1000.0,
+        interval_amy - motor_interval,
+        (double)(interval_os.tv_usec - motor_interval * 1000) / 1000.0,
+        cb_frame_count,
+        AMY_BLOCK_SIZE, AMY_NCHANS, AMY_SAMPLE_RATE);
+}
+
 void looper(unsigned int now) {
     int pat;
-    amytimeb = amy_sysclock();
-    gettimeofday(&ostime1, NULL);
     for (pat=0; pat<PAT_COUNT; pat++) {
         if (!playing[pat]) continue;
         if ((clockcounter % get_modulus(pat)) == 0) {
@@ -620,13 +635,6 @@ void looper(unsigned int now) {
             }
         }
     }
-    loop_amy = amy_sysclock() - amytimeb;
-    gettimeofday(&ostime2, NULL);
-    interval_amy = amytimeb - amytimea;
-    amytimea = amytimeb;
-    timeval_subtract(&loop_os, &ostime2, &ostime1); // time from top of pattern to bottom
-    timeval_subtract(&interval_os, &ostime1, &ostime0); // time from last looper call
-    memcpy(&ostime0, &ostime1, sizeof(struct timeval));
     clockcounter++;
 }
 
@@ -641,32 +649,34 @@ static struct itimerspec motor_period;
 void motor_init(int ms);
 
 void motor_wheel(union sigval timer_data) {
-#if 1
-    static int interval = -1;
-    if (interval <= 0) {
-        interval = raw_getter_int(SYS, 'm');
+    if (motor_interval <= 0) {
+        motor_interval = sysvar_int[METRO_INDEX];
     }
     static unsigned int last = 0;
     unsigned int now = amy_sysclock();
     if (now > last) {
-        //write(1, ".", 1);
+        // keep metrics on motor_wheel calls
+        amytimeb = amy_sysclock(); // for amy
+        gettimeofday(&ostime1, NULL); // for os
+        // run a step in all patterns
         looper(now);
-        interval = raw_getter_int(SYS, 'm');
-        last = now + interval;
+        // determine when to run next
+        motor_interval = sysvar_int[METRO_INDEX]; // time per step in msec
+        last = now + motor_interval;
+        // time to run one step of looper
+        loop_amy = amy_sysclock() - amytimeb;
+        gettimeofday(&ostime2, NULL);
+        // time between calls to looper in in amy time (msec)
+        interval_amy = amytimeb - amytimea;
+        // keep for the next pass
+        amytimea = amytimeb;
+        // os time for looper
+        timeval_subtract(&loop_os, &ostime2, &ostime1); // time from top of pattern to bottom
+        // os time between calls to looper
+        timeval_subtract(&interval_os, &ostime1, &ostime0); // time from last looper call
+        // keep for the next pass
+        memcpy(&ostime0, &ostime1, sizeof(struct timeval));
     }
-#else
-    static int interval = -1;
-    if (interval <= 0) {
-        interval = raw_getter_int(SYS, 'm');
-    }
-    looper(1);
-    int new_interval = raw_getter_int(SYS, 'm');
-    if (interval != new_interval) {
-        interval = new_interval;
-        timer_delete(motor_timer);
-        motor_init(new_interval);
-    }
-#endif
 }
 
 static unsigned int motor_data = 42;

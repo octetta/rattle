@@ -73,4 +73,6 @@ void loader(char *use_file);
 
 void set_loader_ms(void *fn);
 
+void time_info(void);
+
 #endif
