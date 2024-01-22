@@ -18,8 +18,16 @@
     #define MA_NO_RUNTIME_LINKING
 #endif
 #define MINIAUDIO_IMPLEMENTATION
+
+#if 1
+// this shows the most output options under mxlinux
 #define MA_NO_PULSEAUDIO
 #define MA_NO_JACK
+#else
+// this shows the least output options under mxlinux
+//#define MA_NO_PULSEAUDIO
+//#define MA_NO_JACK
+#endif
 
 #include "miniaudio.h"
 
