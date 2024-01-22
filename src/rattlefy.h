@@ -57,4 +57,17 @@ void setplay(int pat, int play);
 int raw_setter(int us, char ident, char *val);
 int raw_getter_int(int us, char ident);
 
+int get_modulus(int n);
+
+void init_looper(void);
+void looper(unsigned int now);
+void motor_init(int ms);
+
+extern unsigned int interval_amy;
+extern struct timeval interval_os;
+extern unsigned int loop_amy;
+extern struct timeval loop_os;
+
+void loader(char *use_file);
+
 #endif

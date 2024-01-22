@@ -5,6 +5,8 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 
+#include <signal.h>
+
 #include "amy.h"
 #include "rma.h"
 #include "rattlefy.h"
@@ -13,7 +15,12 @@ int times[RATIO_TOP][RATIO_BOTTOM] = {{-1}};
 
 int location[PAT_COUNT];
 int playing[PAT_COUNT];
+int modulus[PAT_COUNT] = {[0 ... 9] = 1};
 char pattern[PAT_COUNT][SEQ_LEN][STORAGE_SIZE];
+
+int get_modulus(int n) {
+    return modulus[n];
+}
 
 char usrvar[IDENT_COUNT][STORAGE_SIZE] = {[0 ... IDENT_COUNT-1] = {[0 ... STORAGE_SIZE-1] = 0}};
 int usrvar_int[IDENT_COUNT] = {[0 ... IDENT_COUNT-1] = 0};
@@ -103,6 +110,36 @@ int other(char *token, int start) {
                 capture_start(bufs[bptr], frames, NULL);
             }
             break;
+    }
+    return 1;
+}
+
+int setmod(char *token, int start) {
+    int n;
+    char ident = token[start+1];
+    if (ident == '\0') {
+        for (int pat=0; pat<PAT_COUNT; pat++) {
+            printf("%%%d=%d\n", pat, modulus[pat]);
+        }
+    }
+    if (isnumber(ident)) {
+        char *val = token+start+2;
+        int pat = ident - '0';
+        switch (*val) {
+            case '\0':
+                printf("%d\n", modulus[pat]);
+                break;
+            case '=':
+                val++;
+                if (isnumber(*val)) {
+                    int next;
+                    int n = intgrabber(val, &next);
+                    if (n > 0) {
+                        modulus[pat] = n;
+                    }
+                }
+                break;
+        }
     }
     return 1;
 }
@@ -208,28 +245,41 @@ int raw_setter(int us, char ident, char *val) {
     return 0;
 }
 
+void showpattern(int pat) {
+    int count = 0;
+    for (int i=0; i<SEQ_LEN; i++) {
+        char *s = pattern[pat][i];
+        if (*s == '\0') break;
+        count++;
+    }
+    if (count == 0) return;
+    printf("# :%d -> playing:%d location:%d(%d) %%:%d\n",
+        pat, playing[pat], location[pat], count-1, modulus[pat]);
+    for (int i=0; i<count; i++) {
+        printf(":%d/%d=%s\n", pat, i, pattern[pat][i]);
+    }
+}
+
 int actionpattern(char *token, int start) {
     char ident = token[start+1];
     char action = token[start+2];
     int pat = ident - '0';
     switch (action) {
         case '\0':
-            int step = 0;
-            while (1) {
-                char *s = pattern[pat][step];
-                if (*s == '\0') break;
-                printf(":%d/%d=%s\n", pat, step, s);
-                step++;
-                if (step >= SEQ_LEN) break;
-            }
+            showpattern(pat);
             break;
         case '+':
-            printf("play %d\n", pat);
+            //printf("play %d\n", pat);
             setplay(pat, 1);
+            location[pat] = 0;
             break;
         case '-':
-            printf("stop %d\n", pat);
+            //printf("stop %d\n", pat);
             setplay(pat, 0);
+            break;
+        case '.':
+            //printf("resume %d\n", pat);
+            setplay(pat, 1);
             break;
         case '/':
             if (isnumber(token[start+3])) {
@@ -255,8 +305,17 @@ int actionpattern(char *token, int start) {
 int setgetsys(char *token, int start) {
     char ident = token[start+1];
     if (ident == '\0') {
-        INFO("show all\n");
+        for (int n=0; n<IDENT_COUNT; n++) {
+            if (strlen(sysvar[n]) > 0) {
+                printf("$%c=%s\n", n+'a', sysvar[n]);
+            }
+        }
         return 1;
+    }
+    if (ident == ':') {
+        for (int pat=0; pat<PAT_COUNT; pat++) {
+            showpattern(pat);
+        }
     }
     if (isnumber(ident)) return actionpattern(token, start);
     if (!isident(ident)) return 1;
@@ -294,7 +353,11 @@ int setgetsys(char *token, int start) {
 int setgetusr(char *token, int start) {
     char ident = token[start+1];
     if (ident == '\0') {
-        INFO("show all\n");
+        for (int n=0; n<IDENT_COUNT; n++) {
+            if (strlen(usrvar[n]) > 0) {
+                printf("$%c=%s\n", n+'a', usrvar[n]);
+            }
+        }
         return 1;
     }
     if (!isident(ident)) return 1;
@@ -334,28 +397,39 @@ int unit(unsigned int now, char *token) {
     }
 
     switch (token[start]) {
+        case '%':
+            return setmod(token, start);
+            break;
         case QUERY: // query
+            //VERBOSE("QUERY\n");
             return query(token, start);
             break;
         case VARIABLE: // user
+            //VERBOSE("VARIABLE\n");
             return setgetusr(token, start);
             break;
         case SETTING: // system
+            //VERBOSE("SETTING\n");
             return setgetsys(token, start);
             break;
         case 't':
+            //VERBOSE("ABSTIME\n");
             tflag = 1;
             break;
         case '+':
+            //VERBOSE("RELTIME\n");
             rflag = 1;
             break;
         case '_':
+            //VERBOSE("RATIOTIME\n");
             mflag = 1;
             break;
         case CAPTURE:
+            //VERBOSE("OTHER\n");
             return other(token, start);
             break;
         case COMMENT:
+            //VERBOSE("COMMENT\n");
             return 1;
             break;
     }
@@ -465,5 +539,165 @@ void setstep(int pat, int step) {
 void setplay(int pat, int play) {
     if (pat >= 0 && pat < PAT_COUNT) {
         playing[pat] = play;
+    }
+}
+
+// measure the latency between metro match messages from AMY
+unsigned int amytimea = 0;
+unsigned int amytimeb = 0;
+unsigned int interval_amy = 0;
+unsigned int loop_amy = 0;
+// same for os time
+struct timeval ostime0;
+struct timeval ostime1;
+struct timeval ostime2;
+struct timeval loop_os;
+struct timeval interval_os;
+
+static int timeval_subtract(struct timeval *result, struct timeval *x, struct timeval *y) {
+    if (x->tv_usec < y->tv_usec) {
+        int nsec = (y->tv_usec - x->tv_usec) / 1000000 + 1;
+        y->tv_usec -= 1000000 * nsec;
+        y->tv_sec += nsec;
+    }
+    if (x->tv_usec - y->tv_usec > 1000000) {
+        int nsec = (x->tv_usec - y->tv_usec) / 1000000;
+        y->tv_usec += 1000000 * nsec;
+        y->tv_sec -= nsec;
+    }
+
+    result->tv_sec = x->tv_sec - y->tv_sec;
+    result->tv_usec = x->tv_usec - y->tv_usec;
+
+    return x->tv_sec < y->tv_sec;
+}
+
+// eventually put old logic for loops here, just mashed a message now
+
+int looppos = 0;
+int clockcounter = 0;
+
+void init_looper(void) {
+    int i;
+    int j;
+    for (i=0; i<PAT_COUNT; i++) {
+        setstep(i, 0);
+        setplay(i, 0);
+        for (j=0; j<SEQ_LEN; j++) {
+            setpattern(i, j, "");
+        }
+    }
+}
+
+void looper(unsigned int now) {
+    int pat;
+    amytimeb = amy_sysclock();
+    gettimeofday(&ostime1, NULL);
+    for (pat=0; pat<PAT_COUNT; pat++) {
+        if (!playing[pat]) continue;
+        if ((clockcounter % get_modulus(pat)) == 0) {
+            int step = location[pat];
+            if (strlen(pattern[pat][step]) > 0) {
+                if (pattern[pat][step][0] == '/') {
+                    // unconditional jump to 0 for now
+                    // add other possibilities here later
+                    step = 0;
+                }
+                // after possible step location changes process things
+                if (strlen(pattern[pat][step]) > 0) {
+                    process(now, pattern[pat][step]);
+                }
+                step++;
+                location[pat] = step;
+            } else {
+                playing[pat] = 0;
+            }
+        }
+    }
+    loop_amy = amy_sysclock() - amytimeb;
+    gettimeofday(&ostime2, NULL);
+    interval_amy = amytimeb - amytimea;
+    amytimea = amytimeb;
+    timeval_subtract(&loop_os, &ostime2, &ostime1); // time from top of pattern to bottom
+    timeval_subtract(&interval_os, &ostime1, &ostime0); // time from last looper call
+    memcpy(&ostime0, &ostime1, sizeof(struct timeval));
+    clockcounter++;
+}
+
+#ifdef MACFAKETIMER
+#include "macos-timer.h"
+#endif
+
+static struct sigevent motor_event;
+static timer_t motor_timer;
+static struct itimerspec motor_period;
+
+void motor_init(int ms);
+
+void motor_wheel(union sigval timer_data) {
+#if 1
+    static int interval = -1;
+    if (interval <= 0) {
+        interval = raw_getter_int(SYS, 'm');
+    }
+    static unsigned int last = 0;
+    unsigned int now = amy_sysclock();
+    if (now > last) {
+        //write(1, ".", 1);
+        looper(now);
+        interval = raw_getter_int(SYS, 'm');
+        last = now + interval;
+    }
+#else
+    static int interval = -1;
+    if (interval <= 0) {
+        interval = raw_getter_int(SYS, 'm');
+    }
+    looper(1);
+    int new_interval = raw_getter_int(SYS, 'm');
+    if (interval != new_interval) {
+        interval = new_interval;
+        timer_delete(motor_timer);
+        motor_init(new_interval);
+    }
+#endif
+}
+
+static unsigned int motor_data = 42;
+
+void motor_init(int ms) {
+    int sec = ms / 1000;
+    int nsec = (ms - (sec * 1000)) * 1000000;
+    motor_event.sigev_notify = SIGEV_THREAD;
+    motor_event.sigev_notify_function = motor_wheel;
+    motor_event.sigev_value.sival_ptr = (void *)&motor_data;
+    motor_event.sigev_notify_attributes = NULL;
+    timer_create(CLOCK_REALTIME, &motor_event, &motor_timer);
+    //timer_create(CLOCK_MONOTONIC, &motor_event, &motor_timer);
+    motor_period.it_value.tv_sec = sec;
+    motor_period.it_value.tv_nsec = nsec;
+    motor_period.it_interval.tv_sec = sec;
+    motor_period.it_interval.tv_nsec = nsec;
+    timer_settime(motor_timer, 0, &motor_period, NULL);
+}
+
+void loader(char *use_file) {
+    FILE *in = NULL;
+    in = fopen(use_file, "r");
+    if (in) {
+        char input[1024];
+        int len = 0;
+        //printf("reading from <%s>\n", use_file);
+        while (1) {
+            unsigned int mark = amy_sysclock();
+            if (fgets(input, sizeof(input)/2, in) == NULL) break;
+            len = strlen(input);
+            if (len == 0) break;
+            //printf("read <%.*s>\n", len-1, input);
+            if (process(mark, input) == 0) break;
+        }
+        fclose(in);
+    } else {
+        printf("can't read from <%s>\n", use_file);
     }
 }
