@@ -604,7 +604,6 @@ static int metro_correction_ms = 0;
 
 void metro_info(void) {
     printf("drift:%d correction:%d\n", metro_drift_os_ms, metro_correction_ms);
-    return;
     printf("interval:%d/%g loop:%d/%g drift:%d/%g fc:%d BS:%d NC:%d SR:%d\n",
         interval_amy,
         (double)interval_os.tv_usec/1000.0,
@@ -660,7 +659,11 @@ static int FOOFY(int drift, int correction) {
 
 void metro_action(union sigval timer_data) {
     metro_drift_os_ms = interval_os.tv_usec/1000 - metro_interval;
-    metro_correction_ms = FOOFY(metro_drift_os_ms, metro_correction_ms);
+    if (metro_drift_os_ms < 0) {
+        // nanosleep
+    } else {
+        //metro_correction_ms = -metro_drift_os_ms;
+    }
     if (metro_interval <= 0) {
         metro_interval = sysvar_int[METRO_INDEX];
     }
