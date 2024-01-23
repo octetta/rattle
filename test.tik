@@ -1,11 +1,26 @@
+# set up some oscillators
+
+# triangle
 v0w3
+
+# fm synth pad
 v10w8p100
+
+# pcm 808-kick
 v20w7p1
+
+# pcm 808-snare
 v21w7p2
+
+# pcm 808-closed-cymbal
 v30w7p6
-#
+
+# run a few notes through v1
+# note-on velocity 1
 v1l1
+# inline delay 100ms
 ~100
+# n69 is midi note 69 == middle A 440Hz
 v1n69
 ~100
 v1n70
@@ -14,34 +29,39 @@ v1n71
 ~100
 v1n70
 ~100
+# note-off
 v1l0
 
+# set some variables that are used for volume below
 $a=1
 $b=1
 $c=5
 $d=5
 $e=6
 
+# make sure patterns 0-5 are stopped
 :0-
 :1-
 :2-
 :3-
 :4-
+:5-
 
+# setup the modulus for patterns 0-3
 %0=2
 %1=3
 %2=4
 %3=1
 
-
+# set a note variable for pattern 0
 $m=n50
-
 :0/0=v0l$a$m
 :0/1=v0l0
+# goto step 0
 :0/2=/
 
+# set a note variable for pattern 1
 $n=n72
-
 :1/0=#
 :1/1=v10l$b$n
 :1/2=#
@@ -58,6 +78,11 @@ $n=n72
 :3/3=v30l$e
 :3/4=/
 
+# ampersand is used to separate statement in a step...
+# internally this is turned into a ;
+# but using semicolon in a step assignment directly
+# results in two separate commands
+
 :4/0=v1n70l2&_14v1n60&_12v1n65&_34v1n69&_44v1l0
 
 %5=8
@@ -69,10 +94,12 @@ $n=n72
 :5/5=#
 :5/6=$n=n58
 :5/7=#
+# :4+ means start pattern 4
 :5/8=:4+
 :5/9=#
 :5/10=/
 
+# this sets the delay between steps (in milliseconds)
 :m=100
 
 :0+
@@ -84,3 +111,4 @@ $n=n72
 # k1
 # ~2000
 # k0
+

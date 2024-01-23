@@ -12,10 +12,6 @@
 #define PAT_COUNT 10
 #define SEQ_LEN 100
 
-extern int location[PAT_COUNT];
-extern int playing[PAT_COUNT];
-extern char pattern[PAT_COUNT][SEQ_LEN][STORAGE_SIZE];
-
 #define QUARTER 250
 
 #define METRO_SYM ('m')
@@ -26,6 +22,7 @@ extern char pattern[PAT_COUNT][SEQ_LEN][STORAGE_SIZE];
 
 #define CLEN (44100)
 #define BLEN (4)
+
 #define SEPARATOR ';'
 
 #define QUERY     '?'
@@ -45,7 +42,7 @@ extern char pattern[PAT_COUNT][SEQ_LEN][STORAGE_SIZE];
 int unit(unsigned int now, char *token);
 int process(unsigned int now, char *input);
 
-extern char splitter[];
+//extern char splitter[];
 
 //
 
@@ -62,7 +59,7 @@ int get_modulus(int n);
 
 void init_looper(void);
 void looper(unsigned int now);
-void motor_init(int ms);
+void metro_init(int ms);
 
 extern unsigned int interval_amy;
 extern struct timeval interval_os;
@@ -73,6 +70,6 @@ void loader(char *use_file);
 
 void set_loader_ms(void *fn);
 
-void time_info(void);
+void metro_info(void);
 
 #endif

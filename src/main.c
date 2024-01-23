@@ -159,7 +159,7 @@ int main(int argc, char *argv[]) {
     amy_live_start();
     amy_reset_oscs();
     
-    motor_init(2);
+    metro_init(2);
 
     int code = 1;
     

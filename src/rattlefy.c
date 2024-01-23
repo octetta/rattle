@@ -177,7 +177,7 @@ int setmod(char *token, int start) {
 int query(char *token, int start) {
     switch (token[start+1]) {
         case 't':
-            time_info();
+            metro_info();
             break;
         case 'c':
             INFO("%" PRIu32 "\n", amy_sysclock());
@@ -583,8 +583,8 @@ static int timeval_subtract(struct timeval *result, struct timeval *x, struct ti
 
 // eventually put old logic for loops here, just mashed a message now
 
-int looppos = 0;
-int clockcounter = 0;
+static int looppos = 0;
+static int clockcounter = 0;
 
 void init_looper(void) {
     int i;
@@ -598,16 +598,20 @@ void init_looper(void) {
     }
 }
 
-int motor_interval = -1;
+static int metro_interval = -1;
+static int metro_drift_os_ms = 0;
+static int metro_correction_ms = 0;
 
-void time_info(void) {
+void metro_info(void) {
+    printf("drift:%d correction:%d\n", metro_drift_os_ms, metro_correction_ms);
+    return;
     printf("interval:%d/%g loop:%d/%g drift:%d/%g fc:%d BS:%d NC:%d SR:%d\n",
         interval_amy,
         (double)interval_os.tv_usec/1000.0,
         loop_amy,
         (double)loop_os.tv_usec/1000.0,
-        interval_amy - motor_interval,
-        (double)(interval_os.tv_usec - motor_interval * 1000) / 1000.0,
+        interval_amy - metro_interval,
+        (double)(interval_os.tv_usec - metro_interval * 1000) / 1000.0,
         cb_frame_count,
         AMY_BLOCK_SIZE, AMY_NCHANS, AMY_SAMPLE_RATE);
 }
@@ -642,27 +646,35 @@ void looper(unsigned int now) {
 #include "macos-timer.h"
 #endif
 
-static struct sigevent motor_event;
-static timer_t motor_timer;
-static struct itimerspec motor_period;
+static struct sigevent metro_event;
+static timer_t metro_timer;
+static struct itimerspec metro_period;
 
-void motor_init(int ms);
+void metro_init(int ms);
 
-void motor_wheel(union sigval timer_data) {
-    if (motor_interval <= 0) {
-        motor_interval = sysvar_int[METRO_INDEX];
+static int FOOFY(int drift, int correction) {
+    return 0;
+    // looking for a low-pass-filter kind of thing...
+    // but this isn't it
+}
+
+void metro_action(union sigval timer_data) {
+    metro_drift_os_ms = interval_os.tv_usec/1000 - metro_interval;
+    metro_correction_ms = FOOFY(metro_drift_os_ms, metro_correction_ms);
+    if (metro_interval <= 0) {
+        metro_interval = sysvar_int[METRO_INDEX];
     }
     static unsigned int last = 0;
     unsigned int now = amy_sysclock();
     if (now > last) {
-        // keep metrics on motor_wheel calls
+        // keep metrics on metro_action calls
         amytimeb = amy_sysclock(); // for amy
         gettimeofday(&ostime1, NULL); // for os
         // run a step in all patterns
         looper(now);
         // determine when to run next
-        motor_interval = sysvar_int[METRO_INDEX]; // time per step in msec
-        last = now + motor_interval;
+        metro_interval = sysvar_int[METRO_INDEX]; // time per step in msec
+        last = now + metro_interval + metro_correction_ms;
         // time to run one step of looper
         loop_amy = amy_sysclock() - amytimeb;
         gettimeofday(&ostime2, NULL);
@@ -679,22 +691,22 @@ void motor_wheel(union sigval timer_data) {
     }
 }
 
-static unsigned int motor_data = 42;
+static unsigned int metro_data = 42;
 
-void motor_init(int ms) {
+void metro_init(int ms) {
     int sec = ms / 1000;
     int nsec = (ms - (sec * 1000)) * 1000000;
-    motor_event.sigev_notify = SIGEV_THREAD;
-    motor_event.sigev_notify_function = motor_wheel;
-    motor_event.sigev_value.sival_ptr = (void *)&motor_data;
-    motor_event.sigev_notify_attributes = NULL;
-    timer_create(CLOCK_REALTIME, &motor_event, &motor_timer);
-    //timer_create(CLOCK_MONOTONIC, &motor_event, &motor_timer);
-    motor_period.it_value.tv_sec = sec;
-    motor_period.it_value.tv_nsec = nsec;
-    motor_period.it_interval.tv_sec = sec;
-    motor_period.it_interval.tv_nsec = nsec;
-    timer_settime(motor_timer, 0, &motor_period, NULL);
+    metro_event.sigev_notify = SIGEV_THREAD;
+    metro_event.sigev_notify_function = metro_action;
+    metro_event.sigev_value.sival_ptr = (void *)&metro_data;
+    metro_event.sigev_notify_attributes = NULL;
+    timer_create(CLOCK_REALTIME, &metro_event, &metro_timer);
+    //timer_create(CLOCK_MONOTONIC, &metro_event, &metro_timer);
+    metro_period.it_value.tv_sec = sec;
+    metro_period.it_value.tv_nsec = nsec;
+    metro_period.it_interval.tv_sec = sec;
+    metro_period.it_interval.tv_nsec = nsec;
+    timer_settime(metro_timer, 0, &metro_period, NULL);
 }
 
 
