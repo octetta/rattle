@@ -662,9 +662,10 @@ static int FOOFY(int drift, int correction) {
 
 void metro_action(union sigval timer_data) {
     metro_drift_os_ms = interval_os.tv_usec/1000 - metro_interval;
+#if 0
     if (metro_drift_os_ms < 0) {
         metro_correction_ms = 0;
-        basic_ms(metro_drift_os_ms);
+        basic_ms(-metro_drift_os_ms);
     } else {
         //metro_correction_ms = -metro_drift_os_ms;
         metro_correction_ms = -10;
@@ -672,6 +673,7 @@ void metro_action(union sigval timer_data) {
     if (metro_interval <= 0) {
         metro_interval = sysvar_int[METRO_INDEX];
     }
+#endif
     static unsigned int last = 0;
     unsigned int now = amy_sysclock();
     if (now > last) {
