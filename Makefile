@@ -1,4 +1,4 @@
-all: bin lib bin/rattle
+all: bin lib bin/rattle bin/rmini bin/timer02 bin/exec01
 
 ifeq ($(shell uname), Linux)
 LL = -lrt -ldl -latomic
@@ -6,6 +6,26 @@ else
 CC = clang
 LL = -framework AudioUnit -framework CoreAudio -framework CoreFoundation 
 endif
+
+bin/timer02: src/timer02.go
+	go build -o $@ $<
+
+bin/exec01: src/exec01.go
+	go build -o $@ $<
+
+bin/rmini: lib/libamy.a lib/librma.a src/minimain.c
+	$(CC) \
+    -Isrc \
+    -Iamy/src \
+    src/minimain.c \
+    -Llib \
+    -lrma \
+    -lamy \
+    -lm \
+    -lpthread \
+    $(LL) \
+    -o bin/rmini \
+    #
 
 bin/rattle: lib/libamy.a lib/librma.a src/main.c src/rattlefy.c
 	$(CC) \

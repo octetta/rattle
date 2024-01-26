@@ -604,6 +604,20 @@ static int metro_drift_os_ms = 0;
 static int metro_correction_ms = 0;
 
 void metro_info(void) {
+    struct timespec tp;
+    
+    clock_getres(CLOCK_REALTIME, &tp);
+    printf("CLOCK_REALTIME -> tv_sec:%d tv_nsec:%d\n", tp.tv_sec, tp.tv_nsec);
+
+    clock_getres(CLOCK_REALTIME_ALARM, &tp);
+    printf("CLOCK_REALTIME_ALARM -> tv_sec:%d tv_nsec:%d\n", tp.tv_sec, tp.tv_nsec);
+
+    clock_getres(CLOCK_REALTIME_COARSE, &tp);
+    printf("CLOCK_REALTIME_COARSE -> tv_sec:%d tv_nsec:%d\n", tp.tv_sec, tp.tv_nsec);
+
+    clock_getres(CLOCK_MONOTONIC, &tp);
+    printf("CLOCK_MONOTONIC -> tv_sec:%d tv_nsec:%d\n", tp.tv_sec, tp.tv_nsec);
+
     printf("drift:%d correction:%d rem:%d\n",
         metro_drift_os_ms, metro_correction_ms,
         rem.tv_nsec);
