@@ -38,8 +38,8 @@ int main(int argc, char *argv[]) {
     while (code) {
         char input[1024];
         int len = 0;
-        fprintf(stdout, "# ");
-        fflush(stdout);
+        //fprintf(stdout, "# ");
+        //fflush(stdout);
         if (fgets(input, sizeof(input)-1, stdin) == NULL) break;
         len = strlen(input);
         if (len == 0) continue;
@@ -75,18 +75,29 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        fprintf(stdout, "<%s>\n", trimmed);
+        // fprintf(stdout, "<%s>\n", trimmed);
 
-        mark = amy_sysclock();
+        len = strlen(input);
+        if (len == 0) continue;
 
-        amy_play_message(trimmed);
+        switch (*trimmed) {
+            case '?':
+                switch (*(trimmed+1)) {
+                    case 'c':
+                        fprintf(stdout, "%d\n", amy_sysclock());
+                        break;
+                }
+                break;
+            default:
+                amy_play_message(trimmed);
+                break;
+        }
+
 
         code = 1;
     }
 
     amy_live_stop();
-    
-    puts("rattle done");
     
     return 0;
 }
