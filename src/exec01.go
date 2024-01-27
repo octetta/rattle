@@ -9,6 +9,7 @@ import (
 )
 
 func devices() {
+    fmt.Println("> bin/rmini -d 11")
     cmd := exec.Command("./bin/rmini", "-l")
     out, _ := cmd.Output()
     type Result []interface{}
@@ -24,6 +25,7 @@ func devices() {
 
 func main() {
     devices()
+    fmt.Println("> bin/rmini -d 11")
     exe := exec.Command("./bin/rmini", "-d", "11")
     cmd,_ := exe.StdinPipe()
     res,_ := exe.StdoutPipe()
@@ -35,21 +37,27 @@ func main() {
     cmd.Write([]byte("v0w1f110l1\n"))
     cmd.Write([]byte("?c\n"))
     line,_,_ := buf.ReadLine()
-    fmt.Println(line)
+    
+    var clock int64
+
+    json.Unmarshal(line, &clock)
+    fmt.Println(clock)
     
     time.Sleep(250 * time.Millisecond)
     
     cmd.Write([]byte("v0f55\n"))
     cmd.Write([]byte("?c\n"))
     line,_,_ = buf.ReadLine()
-    fmt.Println(line)
+    json.Unmarshal(line, &clock)
+    fmt.Println(clock)
     
     time.Sleep(250 * time.Millisecond)
     
     cmd.Write([]byte("v0f5\n"))
     cmd.Write([]byte("?c\n"))
     line,_,_ = buf.ReadLine()
-    fmt.Println(line)
+    json.Unmarshal(line, &clock)
+    fmt.Println(clock)
     
     time.Sleep(250 * time.Millisecond)
     
@@ -59,7 +67,11 @@ func main() {
     
     cmd.Write([]byte("?i\n")) // get array [100,2] == 100 frames, 2frames/sample
     line,_,_ = buf.ReadLine()
-    fmt.Println(line)
+
+    var info []int64
+
+    json.Unmarshal(line, &info)
+    fmt.Println(info)
     
     cmd.Write([]byte("?n\n")) // get array of frames [1,...]
     line,_,_ = buf.ReadLine()
@@ -76,8 +88,6 @@ func main() {
     // all of them. We also only collect the `StdoutPipe`
     // results, but you could collect the `StderrPipe` in
     // exactly the same way.
-    fmt.Println("> bin/rmini -d 11")
-    fmt.Printf("%d\n", len(sample))
     fmt.Println(sample)
 
     // Note that when spawning commands we need to
