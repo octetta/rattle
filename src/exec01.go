@@ -34,11 +34,16 @@ func main() {
     
     buf := bufio.NewReader(res)
 
-    cmd.Write([]byte("v0w1f110l1\n"))
+    var clock int64
+    var sample []int16
+
+    cmd.Write([]byte("v0w1\n"))
+
+    for i := 0; i < 3; i++ {
+    
+    cmd.Write([]byte("v0f110l1\n"))
     cmd.Write([]byte("?c\n"))
     line,_,_ := buf.ReadLine()
-    
-    var clock int64
 
     json.Unmarshal(line, &clock)
     fmt.Println(clock)
@@ -75,12 +80,13 @@ func main() {
     
     cmd.Write([]byte("?n\n")) // get array of frames [1,...]
     line,_,_ = buf.ReadLine()
-    var sample []int16
     json.Unmarshal(line, &sample);
+    fmt.Println(sample)
+
+    }
     
     cmd.Close()
     res.Close()
-    
     exe.Wait()
 
     // We ommited error checks in the above example, but
@@ -88,7 +94,6 @@ func main() {
     // all of them. We also only collect the `StdoutPipe`
     // results, but you could collect the `StderrPipe` in
     // exactly the same way.
-    fmt.Println(sample)
 
     // Note that when spawning commands we need to
     // provide an explicitly delineated command and
