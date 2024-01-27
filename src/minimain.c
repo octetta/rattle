@@ -43,7 +43,7 @@ int main(int argc, char *argv[]) {
         char input[1024];
         int len = 0;
         //fprintf(stdout, "# ");
-        //fflush(stdout);
+        fflush(stdout);
         if (fgets(input, sizeof(input)-1, stdin) == NULL) break;
         // scan for comments and semicolons
         len = strlen(input);
