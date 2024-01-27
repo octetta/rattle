@@ -7,6 +7,8 @@ import (
   "os"
   "os/exec"
   "encoding/json"
+  "embed"
+  "path/filepath"
 )
 
 func devices() {
@@ -24,9 +26,22 @@ func devices() {
     }
 }
 
+//go:embed folder/*
+var folder embed.FS
+
 func main() {
+	cache,_ := os.UserCacheDir()
+	fmt.Println(string(cache))
+	sampleout := filepath.Join(cache, "sample.txt")
+
+	//config := os.UserConfigDir()
+	//fmt.Println(config)
+
 	arg := os.Args
 	fmt.Println(len(arg), arg)
+
+	text,_ := folder.ReadFile("folder/sample.txt")
+	fmt.Println(string(text))
 
 	devid := "0"
 

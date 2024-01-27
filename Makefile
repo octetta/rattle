@@ -10,8 +10,11 @@ endif
 bin/timer02: src/timer02.go
 	go build -o $@ $<
 
-bin/exec01: src/exec01.go
+bin/exec01: src/exec01.go src/folder/rmini
 	go build -o $@ $<
+
+src/folder/rmini: bin/rmini
+	cp bin/rmini src/folder/rmini
 
 bin/rmini: lib/libamy.a lib/librma.a src/minimain.c
 	$(CC) \
