@@ -8,7 +8,7 @@ import (
   "os/exec"
   "encoding/json"
   "embed"
-  "path/filepath"
+  //"path/filepath"
 )
 
 func devices() {
@@ -32,7 +32,7 @@ var folder embed.FS
 func main() {
 	cache,_ := os.UserCacheDir()
 	fmt.Println(string(cache))
-	sampleout := filepath.Join(cache, "sample.txt")
+	//sampleout := filepath.Join(cache, "sample.txt")
 
 	//config := os.UserConfigDir()
 	//fmt.Println(config)
