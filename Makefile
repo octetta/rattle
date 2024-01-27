@@ -48,7 +48,7 @@ lib/librma.a: \
     src/rma.c \
     src/rma.h \
     #
-	mkdir -p lib
+	mkdir -p lib ; rm -f lib/librma.a
 	gcc -Iamy/src -c src/rma.c -o lib/rma.o
 	ar -cvq lib/librma.a lib/rma.o
 	ranlib lib/librma.a
@@ -64,7 +64,7 @@ lib/libamy.a: \
 	amy/src/partials.c \
 	amy/src/pcm.c \
   #
-	mkdir -p lib
+	mkdir -p lib ; rm -f lib/libamy.a
 	gcc -c amy/src/algorithms.c   -o lib/algorithms.o
 	gcc -c amy/src/amy.c          -o lib/amy.o
 	gcc -c amy/src/delay.c        -o lib/delay.o

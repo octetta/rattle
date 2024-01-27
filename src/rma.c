@@ -55,12 +55,16 @@ void amy_print_devices() {
     ma_device_info* pCaptureInfos;
     ma_uint32 captureCount;
     if (ma_context_get_devices(&context, &pPlaybackInfos, &playbackCount, &pCaptureInfos, &captureCount) != MA_SUCCESS) {
-        fprintf(stdout,"Failed to get device list.\n");
+        fprintf(stdout,"[[-1, \"Failed to get device list.\"]]\n");
         exit(1);
     }
 
+    char c = ',';
+    fprintf(stdout, "[");
     for (ma_uint32 iDevice = 0; iDevice < playbackCount; iDevice += 1) {
-        fprintf(stdout,"%d - %s\n", iDevice, pPlaybackInfos[iDevice].name);
+        if (iDevice == playbackCount -1) c = ']';
+        fprintf(stdout,"[%d, \"%s\"]%c\n",
+            iDevice, pPlaybackInfos[iDevice].name, c);
     }
 
     ma_context_uninit(&context);

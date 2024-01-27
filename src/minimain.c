@@ -4,9 +4,13 @@
 #include "amy.h"
 #include "rma.h"
 
+#define SLEN (44100)
 
 int main(int argc, char *argv[]) {
     int opt;
+    short int *sbuf = NULL;
+    unsigned int slen = SLEN;
+    short int nchan = 2;
     while ((opt = getopt(argc, argv, ":d:lh")) != -1) {
         switch(opt) { 
             case 'd': 
@@ -41,8 +45,22 @@ int main(int argc, char *argv[]) {
         //fprintf(stdout, "# ");
         //fflush(stdout);
         if (fgets(input, sizeof(input)-1, stdin) == NULL) break;
+        // scan for comments and semicolons
         len = strlen(input);
         if (len == 0) continue;
+        char *first = input;
+        int scanning = 1;
+        while (scanning) {
+            switch (*first) {
+                case '#':
+                case ';':
+                    *first = '\0';
+                case '\0':
+                    scanning = 0;
+                    break;
+            }
+            first++;
+        }
         char *trimmed = input;
         int trimming = 1;
         while (trimming) {
@@ -75,17 +93,52 @@ int main(int argc, char *argv[]) {
             }
         }
 
-        // fprintf(stdout, "<%s>\n", trimmed);
+        fprintf(stderr, "<%s>\n", trimmed);
 
         len = strlen(input);
         if (len == 0) continue;
 
         switch (*trimmed) {
-            case '?':
+            case '?': // query
                 switch (*(trimmed+1)) {
                     case 'c':
                         fprintf(stdout, "%d\n", amy_sysclock());
                         break;
+                    case 'i':
+                        fprintf(stdout, "[%d,%d]\n", captured_frames(), nchan);
+                        break;
+                    case 'n':
+                        {
+                            int n = captured_frames();
+                            fprintf(stdout, "[");
+                            char c = ',';
+                            for (int i=0; i<n; i++) {
+                                if (i == n-1) c = ']';
+                                printf("%d%c", sbuf[i], c);
+                            }
+                            fprintf(stdout, "\n");
+                        }
+                        break;
+                }
+                break;
+            case '<': // sample
+                {
+                    char *num = trimmed+1;
+                    if (*num == '\0') {
+                        slen = SLEN;
+                    } else {
+                        slen = strtol(num, NULL, 10);
+                    }
+                    if (slen > 0) {
+                        if (sbuf) free(sbuf);
+                        sbuf = (short int *)malloc(slen * sizeof(short int));
+                        if (sbuf) {
+                            capture_stop();
+                            capture_start(sbuf, slen, &nchan);
+                        }
+                    } else {
+                        capture_stop();
+                    }
                 }
                 break;
             default:

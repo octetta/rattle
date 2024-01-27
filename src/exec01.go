@@ -4,6 +4,7 @@ import "fmt"
 import "time"
 import "io/ioutil"
 import "os/exec"
+//import "encoding/json"
 
 func main() {
     listCmd := exec.Command("./bin/rmini", "-l")
@@ -12,8 +13,20 @@ func main() {
         panic(err)
     }
     fmt.Println("> bin/rmini -l")
-
     fmt.Println(string(listOut))
+
+    //type Device struct {
+    //  Id int
+    //  Name string
+    //}
+
+    //var devices []Device
+    //e := json.Unmarshal(listOut, &devices)
+    //if e != nil {
+    //  fmt.Println("error:", e)
+    //}
+    //fmt.Printf("%+v", devices)
+
     // `.Output` is another helper that handles the common
     // case of running a command, waiting for it to finish,
     // and collecting its output. If there were no errors,
@@ -22,28 +35,37 @@ func main() {
     // Next we'll look at a slightly more involved case
     // where we pipe data to the external process on its
     // `stdin` and collect the results from its `stdout`.
-    amyCmd := exec.Command("./bin/rmini", "-d", "11")
+    amyExec := exec.Command("./bin/rmini", "-d", "11")
 
     // Here we explicitly grab input/output pipes, start
     // the process, write some input to it, read the
     // resulting output, and finally wait for the process
     // to exit.
-    amyIn, _ := amyCmd.StdinPipe()
-    amyOut, _ := amyCmd.StdoutPipe()
-    amyCmd.Start()
-    amyIn.Write([]byte("?c\n"))
-    amyIn.Write([]byte("v0w1f110l1\n"))
-    amyIn.Write([]byte("?c\n"))
+    amyCmd, _ := amyExec.StdinPipe()
+    amyRes, _ := amyExec.StdoutPipe()
+    // amyErr, _ := amyExec.StderrPipe()
+    amyExec.Start()
+    amyCmd.Write([]byte("?c\n"))
+    amyCmd.Write([]byte("v0w1f110l1\n"))
+    amyCmd.Write([]byte("?c\n"))
     time.Sleep(1 * time.Second)
-    amyIn.Write([]byte("v0f55\n"))
-    amyIn.Write([]byte("?c\n"))
+    amyCmd.Write([]byte("v0f55\n"))
+    amyCmd.Write([]byte("?c\n"))
     time.Sleep(1 * time.Second)
-    amyIn.Write([]byte("v0f220\n"))
-    amyIn.Write([]byte("?c\n"))
+    amyCmd.Write([]byte("v0f5\n"))
+    amyCmd.Write([]byte("?c\n"))
     time.Sleep(1 * time.Second)
-    amyIn.Close()
-    amyBytes, _ := ioutil.ReadAll(amyOut)
-    amyCmd.Wait()
+    amyCmd.Write([]byte("<256\n"))
+    //x,_ := ioutil.ReadAll(amyRes)
+    //fmt.Println(string(x))
+    time.Sleep(1 * time.Second)
+    amyCmd.Write([]byte("?i\n")) // get array [100,2] == 100 frames, 2frames/sample
+    amyCmd.Write([]byte("?n\n")) // get array of frames [1,...]
+    //var sample []int16;
+    //json.
+    amyCmd.Close()
+    amyBytes, _ := ioutil.ReadAll(amyRes)
+    amyExec.Wait()
 
     // We ommited error checks in the above example, but
     // you could use the usual `if err != nil` pattern for
