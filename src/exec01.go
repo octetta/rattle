@@ -4,12 +4,13 @@ import (
   "bufio"
   "fmt"
   "time"
+  "os"
   "os/exec"
   "encoding/json"
 )
 
 func devices() {
-    fmt.Println("> bin/rmini -d 11")
+    fmt.Println("> bin/rmini -l")
     cmd := exec.Command("./bin/rmini", "-l")
     out, _ := cmd.Output()
     type Result []interface{}
@@ -24,9 +25,22 @@ func devices() {
 }
 
 func main() {
-    devices()
-    fmt.Println("> bin/rmini -d 11")
-    exe := exec.Command("./bin/rmini", "-d", "11")
+	arg := os.Args
+	fmt.Println(len(arg), arg)
+
+	devid := "0"
+
+	if len(arg) > 1 && arg[1] == "-l" {
+		devices()
+		os.Exit(0)
+	}
+
+	if len(arg) > 2 && arg[1] == "-d" {
+		devid = arg[2]
+	}
+
+    fmt.Printf("> bin/rmini -d %s\n", devid)
+    exe := exec.Command("./bin/rmini", "-d", devid)
     cmd,_ := exe.StdinPipe()
     res,_ := exe.StdoutPipe()
     // amyErr, _ := exe.StderrPipe()

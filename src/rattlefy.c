@@ -606,6 +606,8 @@ static int metro_correction_ms = 0;
 void metro_info(void) {
     struct timespec tp;
     
+#ifdef __APPLE__
+#else
     clock_getres(CLOCK_REALTIME, &tp);
     printf("CLOCK_REALTIME -> tv_sec:%d tv_nsec:%d\n", tp.tv_sec, tp.tv_nsec);
 
@@ -614,6 +616,7 @@ void metro_info(void) {
 
     clock_getres(CLOCK_REALTIME_COARSE, &tp);
     printf("CLOCK_REALTIME_COARSE -> tv_sec:%d tv_nsec:%d\n", tp.tv_sec, tp.tv_nsec);
+#endif
 
     clock_getres(CLOCK_MONOTONIC, &tp);
     printf("CLOCK_MONOTONIC -> tv_sec:%d tv_nsec:%d\n", tp.tv_sec, tp.tv_nsec);
