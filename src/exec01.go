@@ -9,6 +9,7 @@ import (
   "encoding/json"
   "embed"
   //"path/filepath"
+  "github.com/pborman/getopt/v2"
 )
 
 func devices() {
@@ -30,6 +31,25 @@ func devices() {
 var folder embed.FS
 
 func main() {
+  list := false
+  getopt.Flag(&list, 'l', "list output devices")
+  device := 0
+  getopt.FlagLong(&device, "device", 'd', "device for output")
+  interval := 250
+  getopt.FlagLong(&interval, "interval", 'm', "millisecond between events")
+  optHelp := getopt.BoolLong("help", 0, "help")
+  getopt.Parse()
+
+  if *optHelp {
+    getopt.Usage()
+    os.Exit(0)
+  }
+
+  if list {
+		devices()
+		os.Exit(0)
+  }
+
 	cache,_ := os.UserCacheDir()
 	fmt.Println(string(cache))
 	//sampleout := filepath.Join(cache, "sample.txt")
@@ -37,25 +57,12 @@ func main() {
 	//config := os.UserConfigDir()
 	//fmt.Println(config)
 
-	arg := os.Args
-	fmt.Println(len(arg), arg)
-
 	text,_ := folder.ReadFile("folder/sample.txt")
 	fmt.Println(string(text))
 
-	devid := "0"
-
-	if len(arg) > 1 && arg[1] == "-l" {
-		devices()
-		os.Exit(0)
-	}
-
-	if len(arg) > 2 && arg[1] == "-d" {
-		devid = arg[2]
-	}
-
-    fmt.Printf("> bin/rmini -d %s\n", devid)
-    exe := exec.Command("./bin/rmini", "-d", devid)
+    fmt.Printf("> bin/rmini -d %d\n", device)
+    device_string := fmt.Sprintf("%d", device)
+    exe := exec.Command("./bin/rmini", "-d", device_string)
     cmd,_ := exe.StdinPipe()
     res,_ := exe.StdoutPipe()
     // amyErr, _ := exe.StderrPipe()
@@ -66,52 +73,46 @@ func main() {
     var clock int64
     var sample []int16
 
-    cmd.Write([]byte("v0w1\n"))
+    cmd.Write([]byte("v0w8p100\n"))
 
     for i := 0; i < 3; i++ {
-    
-    cmd.Write([]byte("v0f110l1\n"))
-    cmd.Write([]byte("?c\n"))
-    line,_,_ := buf.ReadLine()
+      cmd.Write([]byte("v0n40l1\n"))
+      cmd.Write([]byte("?c\n"))
+      line,_,_ := buf.ReadLine()
 
-    json.Unmarshal(line, &clock)
-    fmt.Println(clock)
-    
-    time.Sleep(250 * time.Millisecond)
-    
-    cmd.Write([]byte("v0f55\n"))
-    cmd.Write([]byte("?c\n"))
-    line,_,_ = buf.ReadLine()
-    json.Unmarshal(line, &clock)
-    fmt.Println(clock)
-    
-    time.Sleep(250 * time.Millisecond)
-    
-    cmd.Write([]byte("v0f5\n"))
-    cmd.Write([]byte("?c\n"))
-    line,_,_ = buf.ReadLine()
-    json.Unmarshal(line, &clock)
-    fmt.Println(clock)
-    
-    time.Sleep(250 * time.Millisecond)
-    
-    cmd.Write([]byte("<256\n"))
-    
-    time.Sleep(250 * time.Millisecond)
-    
-    cmd.Write([]byte("?i\n")) // get array [100,2] == 100 frames, 2frames/sample
-    line,_,_ = buf.ReadLine()
+      json.Unmarshal(line, &clock)
+      fmt.Println(clock)
+      
+      time.Sleep(time.Duration(interval) * time.Millisecond)
+      time.Sleep(time.Duration(interval) * time.Millisecond)
+      
+      cmd.Write([]byte("v0n50l1\n"))
+      cmd.Write([]byte("?c\n"))
+      line,_,_ = buf.ReadLine()
+      json.Unmarshal(line, &clock)
+      fmt.Println(clock)
+      
+      time.Sleep(time.Duration(interval) * time.Millisecond)
+      
+      if i == 0 {
+        cmd.Write([]byte("v0n60l1\n"))
+        cmd.Write([]byte("<1024\n"))
+        time.Sleep(time.Duration(interval) * time.Millisecond)
+        cmd.Write([]byte("?i\n")) // get array [100,2] == 100 frames, 2frames/sample
+        line,_,_ = buf.ReadLine()
+        var info []int64
+        json.Unmarshal(line, &info)
+        fmt.Println(info)
+        cmd.Write([]byte("?n\n")) // get array of frames [1,...]
+        line,_,_ = buf.ReadLine()
+        json.Unmarshal(line, &sample);
+        fmt.Println(sample)
+      } else {
+        cmd.Write([]byte("v0n30l1\n"))
+        time.Sleep(time.Duration(interval) * time.Millisecond)
+      }
 
-    var info []int64
-
-    json.Unmarshal(line, &info)
-    fmt.Println(info)
-    
-    cmd.Write([]byte("?n\n")) // get array of frames [1,...]
-    line,_,_ = buf.ReadLine()
-    json.Unmarshal(line, &sample);
-    fmt.Println(sample)
-
+      
     }
     
     cmd.Close()

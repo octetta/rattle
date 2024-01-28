@@ -11,6 +11,7 @@ bin/timer02: src/timer02.go
 	go build -o $@ $<
 
 bin/exec01: src/exec01.go src/folder/rmini
+	go mod tidy
 	go build -o $@ $<
 
 src/folder/rmini: bin/rmini
