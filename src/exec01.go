@@ -81,7 +81,15 @@ func graph(a []int16) {
   }
   //s.Set(0, -32000)
   //s.Set(1, 32000)
-  for i := 0; i < len(a); i+=2 {
+  hi := a[0]
+  lo := a[0]
+  for i := 1; i < len(a); i+=2 {
+    if a[i] > hi {
+      hi = a[i]
+    }
+    if a[i] < lo {
+      lo = a[i]
+    }
     x0 := int(i/r)
     //m := (a[i] + a[i+1]) / 2
     m := a[i] / 64
@@ -89,6 +97,7 @@ func graph(a []int16) {
     s.Set(x0, y0)
   }
   fmt.Print(s)
+  fmt.Println(lo, hi)
 }
 
 func main() {
