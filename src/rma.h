@@ -14,7 +14,7 @@ extern uint8_t amy_running;
 void amy_print_devices();
 void amy_live_start();
 void amy_live_stop();
-void capture_start(short *buf, unsigned int frames, short *channels);
+void capture_start(short int *buf, unsigned int frames, short *channels);
 unsigned int captured_frames(void);
 void capture_stop(void);
 #endif

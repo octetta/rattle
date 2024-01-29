@@ -1,34 +1,28 @@
 package main
 
+// #cgo CFLAGS: -Isrc
+// #cgo LDFLAGS: lib/librat.a lib/libamy.a lib/librma.a -lm
+// #include "ratlib.h"
+import "C"
+
 import (
-  "bufio"
   "fmt"
   "time"
   "os"
-  "os/exec"
-  "encoding/json"
   "embed"
-  //"path/filepath"
   "github.com/pborman/getopt/v2"
+  "github.com/chzyer/readline"
+  "strings"
+  "io"
 )
-
-func devices() {
-    fmt.Println("> bin/rmini -l")
-    cmd := exec.Command("./bin/rmini", "-l")
-    out, _ := cmd.Output()
-    type Result []interface{}
-    var devices []Result 
-    err := json.Unmarshal(out, &devices)
-    if err != nil {
-        fmt.Println("error:", err)
-    }
-    for i := 0; i < len(devices); i++ {
-        fmt.Printf("%.0f \"%s\"\n", devices[i][0], devices[i][1])
-    }
-}
 
 //go:embed folder/*
 var folder embed.FS
+
+func clk() int {
+  var r C.uint = C.rat_clock()
+  return int(r)
+}
 
 func main() {
   list := false
@@ -46,7 +40,8 @@ func main() {
   }
 
   if list {
-		devices()
+    fmt.Println("RATLIB!")
+		C.rat_list()
 		os.Exit(0)
   }
 
@@ -60,82 +55,84 @@ func main() {
 	text,_ := folder.ReadFile("folder/sample.txt")
 	fmt.Println(string(text))
 
-    fmt.Printf("> bin/rmini -d %d\n", device)
-    device_string := fmt.Sprintf("%d", device)
-    exe := exec.Command("./bin/rmini", "-d", device_string)
-    cmd,_ := exe.StdinPipe()
-    res,_ := exe.StdoutPipe()
-    // amyErr, _ := exe.StderrPipe()
-    exe.Start()
-    
-    buf := bufio.NewReader(res)
+  C.rat_device(C.int(device))
 
-    var clock int64
-    var sample []int16
+  C.rat_start()
 
-    cmd.Write([]byte("v0w8p100\n"))
+  C.rat_send(C.CString("v0w8p100"))
 
-    for i := 0; i < 3; i++ {
-      cmd.Write([]byte("v0n40l1\n"))
-      cmd.Write([]byte("?c\n"))
-      line,_,_ := buf.ReadLine()
-
-      json.Unmarshal(line, &clock)
-      fmt.Println(clock)
+    for i := 0; i < 1; i++ {
+      C.rat_send(C.CString("v0n40l1"))
+      fmt.Println(clk())
       
       time.Sleep(time.Duration(interval) * time.Millisecond)
       time.Sleep(time.Duration(interval) * time.Millisecond)
       
-      cmd.Write([]byte("v0n50l1\n"))
-      cmd.Write([]byte("?c\n"))
-      line,_,_ = buf.ReadLine()
-      json.Unmarshal(line, &clock)
-      fmt.Println(clock)
+      C.rat_send(C.CString("v0n50l1\n"))
+      fmt.Println(clk())
       
       time.Sleep(time.Duration(interval) * time.Millisecond)
       
       if i == 0 {
-        cmd.Write([]byte("v0n60l1\n"))
-        cmd.Write([]byte("<1024\n"))
+        C.rat_send(C.CString("v0n60l1\n"))
+        //cmd.Write([]byte("<1024\n"))
         time.Sleep(time.Duration(interval) * time.Millisecond)
-        cmd.Write([]byte("?i\n")) // get array [100,2] == 100 frames, 2frames/sample
-        line,_,_ = buf.ReadLine()
-        var info []int64
-        json.Unmarshal(line, &info)
-        fmt.Println(info)
-        cmd.Write([]byte("?n\n")) // get array of frames [1,...]
-        line,_,_ = buf.ReadLine()
-        json.Unmarshal(line, &sample);
-        fmt.Println(sample)
+        //cmd.Write([]byte("?i\n")) // get array [100,2] == 100 frames, 2frames/sample
+        //line,_,_ = buf.ReadLine()
+        //var info []int64
+        //json.Unmarshal(line, &info)
+        //fmt.Println(info)
+        //cmd.Write([]byte("?n\n")) // get array of frames [1,...]
+        //line,_,_ = buf.ReadLine()
+        //json.Unmarshal(line, &sample);
+        //fmt.Println(sample)
       } else {
-        cmd.Write([]byte("v0n30l1\n"))
-        time.Sleep(time.Duration(interval) * time.Millisecond)
+        C.rat_send(C.CString("v0n30l1\n"))
+        //time.Sleep(time.Duration(interval) * time.Millisecond)
       }
 
       
     }
-    
-    cmd.Close()
-    res.Close()
-    exe.Wait()
 
-    // We ommited error checks in the above example, but
-    // you could use the usual `if err != nil` pattern for
-    // all of them. We also only collect the `StdoutPipe`
-    // results, but you could collect the `StderrPipe` in
-    // exactly the same way.
+    l,_ := readline.NewEx(&readline.Config{
+      Prompt: "# ",
+      HistoryFile: "/tmp/readline.tmp",
+      InterruptPrompt: "^C",
+    })
+    defer l.Close()
+    l.CaptureExitSignal()
 
-    // Note that when spawning commands we need to
-    // provide an explicitly delineated command and
-    // argument array, vs. being able to just pass in one
-    // command-line string. If you want to spawn a full
-    // command with a string, you can use `bash`'s `-c`
-    // option:
-    // lsCmd := exec.Command("bash", "-c", "ls -a -l -h")
-    // lsOut, err := lsCmd.Output()
-    // if err != nil {
-    //     panic(err)
-    // }
-    // fmt.Println("> ls -a -l -h")
-    // fmt.Println(string(lsOut))
+    for {
+      line,err := l.Readline()
+      if err == readline.ErrInterrupt {
+        if len(line) == 0 {
+          break
+        } else {
+          continue
+        }
+      } else if err == io.EOF {
+        break
+      }
+      line = strings.TrimSpace(line)
+      switch {
+        case line == ":q":
+          goto exit
+        case line == "?c":
+          fmt.Println(clk())
+        case line == "?i":
+          //x1 ,_,_ := buf.ReadLine()
+          //fmt.Println(x1)
+          //json.Unmarshal(x1, &i0)
+        case line == "?n":
+          //x2,_,_ := buf.ReadLine()
+          //fmt.Println(string(x2))
+          //json.Unmarshal(x2, &n0);
+        default:
+          //fmt.Println("<" + line + ">")
+          //cmd.Write([]byte(line+"\n"))
+          C.rat_send(C.CString(line))
+      }
+    }
+    exit:
+    C.rat_stop()
 }

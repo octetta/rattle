@@ -70,12 +70,12 @@ void amy_print_devices() {
     ma_context_uninit(&context);
 }
 
-static short *capture_buf = NULL;
+static short int *capture_buf = NULL;
 static int capture_active = 0;
 static unsigned int capture_req_frames = 0;
 static unsigned int capture_rcv_frames = 0;
 
-void capture_start(short *buf, unsigned int frames, short *channels) {
+void capture_start(short int *buf, unsigned int frames, short int *channels) {
     if (channels) *channels = AMY_NCHANS;
     capture_active = 0;
     capture_buf = buf;
@@ -96,7 +96,7 @@ void capture_stop(void) {
 
 unsigned int cb_frame_count = 0;
 
-void capture(short n) {
+void capture(unsigned int n) {
     if (capture_active) {
         capture_buf[capture_rcv_frames++] = n;
         if (capture_rcv_frames >= capture_req_frames) capture_active = 0;
@@ -119,7 +119,7 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
 
     for(uint16_t frame=0;frame<leftover_samples;frame++) {
         for(uint8_t c=0;c<pDevice->playback.channels;c++) {
-            short n = leftover_buf[AMY_NCHANS * frame + c];
+            unsigned int n = leftover_buf[AMY_NCHANS * frame + c];
             poke[ptr++] = n;
             capture(n);
         }
@@ -133,7 +133,7 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
         int16_t * buf = amy_simple_fill_buffer();
         for(uint16_t frame=0;frame<AMY_BLOCK_SIZE;frame++) {
             for(uint8_t c=0;c<pDevice->playback.channels;c++) {
-                short n = buf[AMY_NCHANS * frame + c];
+                unsigned int n = buf[AMY_NCHANS * frame + c];
                 poke[ptr++] = n;
                 capture(n);
             }
@@ -146,7 +146,7 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
         int16_t * buf = amy_simple_fill_buffer();
         for(uint16_t frame=0;frame<still_need;frame++) {
             for(uint8_t c=0;c<pDevice->playback.channels;c++) {
-                short n = buf[AMY_NCHANS * frame + c];
+                unsigned int n = buf[AMY_NCHANS * frame + c];
                 poke[ptr++] = n;
                 capture(n);
             }

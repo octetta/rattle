@@ -10,19 +10,17 @@ endif
 bin/timer02: src/timer02.go
 	go build -o $@ $<
 
-bin/exec01: src/exec01.go src/folder/rmini
+bin/exec01: src/exec01.go
 	go mod tidy
 	go build -o $@ $<
 
-src/folder/rmini: bin/rmini
-	cp bin/rmini src/folder/rmini
-
-bin/rmini: lib/libamy.a lib/librma.a src/minimain.c
+bin/rmini: lib/libamy.a lib/librma.a lib/librat.a src/rmini.c
 	$(CC) \
     -Isrc \
     -Iamy/src \
-    src/minimain.c \
+    src/rmini.c \
     -Llib \
+    -lrat \
     -lrma \
     -lamy \
     -lm \
@@ -56,6 +54,15 @@ lib/librma.a: \
 	gcc -Iamy/src -c src/rma.c -o lib/rma.o
 	ar -cvq lib/librma.a lib/rma.o
 	ranlib lib/librma.a
+
+lib/librat.a: src/ratlib.c src/ratlib.h \
+    src/ratlib.c \
+    src/ratlib.h \
+    #
+	mkdir -p lib ; rm -f lib/librat.a
+	gcc -Iamy/src -c src/ratlib.c -o lib/ratlib.o
+	ar -cvq lib/librat.a lib/ratlib.o
+	ranlib lib/librat.a
 
 lib/libamy.a: \
 	amy/src/algorithms.c \
