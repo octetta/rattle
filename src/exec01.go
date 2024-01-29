@@ -59,41 +59,6 @@ func main() {
 
   C.rat_start()
 
-  C.rat_send(C.CString("v0w8p100"))
-
-    for i := 0; i < 1; i++ {
-      C.rat_send(C.CString("v0n40l1"))
-      fmt.Println(clk())
-      
-      time.Sleep(time.Duration(interval) * time.Millisecond)
-      time.Sleep(time.Duration(interval) * time.Millisecond)
-      
-      C.rat_send(C.CString("v0n50l1\n"))
-      fmt.Println(clk())
-      
-      time.Sleep(time.Duration(interval) * time.Millisecond)
-      
-      if i == 0 {
-        C.rat_send(C.CString("v0n60l1\n"))
-        //cmd.Write([]byte("<1024\n"))
-        time.Sleep(time.Duration(interval) * time.Millisecond)
-        //cmd.Write([]byte("?i\n")) // get array [100,2] == 100 frames, 2frames/sample
-        //line,_,_ = buf.ReadLine()
-        //var info []int64
-        //json.Unmarshal(line, &info)
-        //fmt.Println(info)
-        //cmd.Write([]byte("?n\n")) // get array of frames [1,...]
-        //line,_,_ = buf.ReadLine()
-        //json.Unmarshal(line, &sample);
-        //fmt.Println(sample)
-      } else {
-        C.rat_send(C.CString("v0n30l1\n"))
-        //time.Sleep(time.Duration(interval) * time.Millisecond)
-      }
-
-      
-    }
-
     l,_ := readline.NewEx(&readline.Config{
       Prompt: "# ",
       HistoryFile: "/tmp/readline.tmp",
@@ -101,6 +66,8 @@ func main() {
     })
     defer l.Close()
     l.CaptureExitSignal()
+
+    time.Sleep(time.Duration(interval) * time.Millisecond)
 
     for {
       line,err := l.Readline()
