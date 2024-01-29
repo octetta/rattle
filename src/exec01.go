@@ -48,6 +48,25 @@ func amy(line string) {
     C.rat_send(C.CString(line))
 }
 
+func process(line string, now int) {
+  // expand $ value
+  snow := strconv.FormatInt(int64(now), 10)
+  switch {
+    case line[:1] == "+":
+      // expand + value
+      // get number following and add to now
+      fmt.Println("+")
+    case line[:1] == "_":
+      // expand _ value
+      // get two digits following, look up in meter and add to now
+      fmt.Println("_")
+    default:
+      out := "t" + snow + line
+      fmt.Println(out)
+      amy(out)
+  }
+}
+
 func graph(a []int16) {
   s := drawille.NewCanvas()
   //for x := 0; x < (900); x = x + 1 {
@@ -142,22 +161,30 @@ func main() {
         }
         switch {
           case tok[:1] == ":":
+            // : = system settings
             if len(tok) > 1 {
               switch {
                 case tok[1] == 'q':
                   goto exit
               }
             }
-          case tok == "?p":
-            graph(samples())
-          case tok == "?c":
-            fmt.Println(clk())
-          case tok == "?i":
-            fmt.Println(frames())
-          case tok == "?n":
-            sample = samples()
-            fmt.Println(sample)
+          case tok[:1] == "?":
+            // ? = query
+            if len(tok) > 1 {
+              switch {
+                case tok[1] == 'p':
+                  graph(samples())
+                case tok[1] == 'i':
+                  fmt.Println(frames())
+                case tok[1] == 'n':
+                  sample = samples()
+                  fmt.Println(sample)
+                case tok[1] == 'c':
+                  fmt.Println(clk())
+              }
+            }
           case tok[:1] == "~":
+            // ~ = pause
             if len(tok) > 1 {
               ms, _ := strconv.ParseInt(tok[1:], 10, 32)
               time.Sleep(time.Duration(ms) * time.Millisecond)
@@ -165,6 +192,7 @@ func main() {
               time.Sleep(time.Duration(interval) * time.Millisecond)
             }
           case tok[:1] == "<":
+            // < = capture frames
             if len(tok) > 1 {
               ms, _ := strconv.ParseInt(tok[1:], 10, 32)
               n := (ms * 44100) / 1000
@@ -172,8 +200,13 @@ func main() {
             } else {
               framer(44100 * 2)
             }
+          case tok[:1] == "/":
+            fmt.Println("/ = jump")
+          case tok[:1] == "$":
+            fmt.Println("$ = var")
           default:
-            amy(tok)
+            //amy(tok)
+            process(tok, clk())
         }
       }
     }
