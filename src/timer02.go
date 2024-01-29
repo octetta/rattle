@@ -9,7 +9,6 @@ func main() {
 
     ticker := time.NewTicker(250 * time.Millisecond)
     done := make(chan bool)
-
     g0 := 100
 
     go func() {

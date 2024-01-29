@@ -147,6 +147,10 @@ func main() {
 
     var sample = make([]int16, 256)
 
+    ticker := time.NewTicker(time.Duration(interval) * time.Millisecond)
+    done := make(chan bool)
+    var diff int64
+
     for {
       line,err := l.Readline()
       if err == readline.ErrInterrupt {
@@ -168,7 +172,33 @@ func main() {
         if len(tok) == 0 {
           continue
         }
+        n := 0
         switch {
+          case tok == "@0":
+            if len(tok) > 1 {
+              go func() {
+                l := time.Now()
+                for {
+                  select {
+                    case <- done:
+                      return
+                    case t := <- ticker.C:
+                      diff = t.Sub(l).Milliseconds()
+                      if (n % 2) == 0 {
+                        amy("v20w7p45l2")
+                      } else {
+                        amy("v21w7p5l5")
+                      }
+                      l = t
+                  }
+                  n++
+                }
+              }()
+            }
+          case tok == "@1":
+            fmt.Println(diff)
+          case tok == "@2":
+            done <- true
           case tok[:1] == ":":
             // : = system settings
             if len(tok) > 1 {
