@@ -40,13 +40,13 @@ func main() {
   }
 
   if list {
-    fmt.Println("RATLIB!")
 		C.rat_list()
 		os.Exit(0)
   }
 
 	cache,_ := os.UserCacheDir()
 	fmt.Println(string(cache))
+  
 	//sampleout := filepath.Join(cache, "sample.txt")
 
 	//config := os.UserConfigDir()
