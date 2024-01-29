@@ -15,6 +15,8 @@ import (
   "strings"
   "strconv"
   "io"
+  "github.com/kerrigan29a/drawille-go"
+  //"math"
 )
 
 //go:embed folder/*
@@ -44,6 +46,23 @@ func samples() []int16 {
 
 func amy(line string) {
     C.rat_send(C.CString(line))
+}
+
+func graph(a []int16) {
+  s := drawille.NewCanvas()
+  //for x := 0; x < (900); x = x + 1 {
+  //  y := int(math.Sin((math.Pi/180)*float64(x))*10 + 0.5)
+  //  s.Set(x/10, y)
+  //}
+  //fmt.Print(s)
+  //s.Clear()
+  r := len(a) / 160
+  for i := 0; i < len(a); i+=2 {
+    x0 := int(i/r)
+    y0 := int(a[i]/64)
+    s.Set(x0, y0)
+  }
+  fmt.Print(s)
 }
 
 func main() {
@@ -122,6 +141,8 @@ func main() {
                   goto exit
               }
             }
+          case tok == "?p":
+            graph(samples())
           case tok == "?c":
             fmt.Println(clk())
           case tok == "?i":

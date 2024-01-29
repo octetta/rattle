@@ -5,6 +5,7 @@ go 1.20
 require (
 	github.com/chzyer/readline v1.5.1
 	github.com/hajimehoshi/ebiten/v2 v2.6.4
+	github.com/kerrigan29a/drawille-go v0.10.2
 	github.com/pborman/getopt/v2 v2.1.0
 )
 
