@@ -60,9 +60,13 @@ func graph(a []int16) {
   if r <= 0 {
     r = 1
   }
+  //s.Set(0, -32000)
+  //s.Set(1, 32000)
   for i := 0; i < len(a); i+=2 {
     x0 := int(i/r)
-    y0 := int(a[i]/64)
+    //m := (a[i] + a[i+1]) / 2
+    m := a[i] / 64
+    y0 := int(m)
     s.Set(x0, y0)
   }
   fmt.Print(s)
@@ -153,9 +157,17 @@ func main() {
           case tok == "?n":
             sample = samples()
             fmt.Println(sample)
+          case tok[:1] == "~":
+            if len(tok) > 1 {
+              ms, _ := strconv.ParseInt(tok[1:], 10, 32)
+              time.Sleep(time.Duration(ms) * time.Millisecond)
+            } else {
+              time.Sleep(time.Duration(interval) * time.Millisecond)
+            }
           case tok[:1] == "<":
             if len(tok) > 1 {
-              n, _ := strconv.ParseInt(tok[1:], 10, 32)
+              ms, _ := strconv.ParseInt(tok[1:], 10, 32)
+              n := (ms * 44100) / 1000
               framer(int(n))
             } else {
               framer(44100 * 2)
