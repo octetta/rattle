@@ -57,6 +57,9 @@ func graph(a []int16) {
   //fmt.Print(s)
   //s.Clear()
   r := len(a) / 160
+  if r <= 0 {
+    r = 1
+  }
   for i := 0; i < len(a); i+=2 {
     x0 := int(i/r)
     y0 := int(a[i]/64)
