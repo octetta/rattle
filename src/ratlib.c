@@ -74,8 +74,14 @@ void rat_send(char *trimmed) {
     amy_play_message(trimmed);
 }
 
+static short int *frames = NULL;
+static unsigned int nframes = 0;
+
 void rat_stop(void) {
+    capture_stop();
     amy_live_stop();
+    if (frames) free(frames);
+    frames = NULL;
 }
 
 int rat_frames(void) {
@@ -92,4 +98,25 @@ void rat_frame_start(short int *sbuf, int slen, short int *n) {
 
 unsigned int rat_clock(void) {
     return amy_sysclock();
+}
+
+int rat_nchans(void) {
+    return AMY_NCHANS;
+}
+
+short int rat_frame_at(int n) {
+    if (frames && n > 0 && n < captured_frames()) {
+        return frames[n];
+    }
+    return 0;
+}
+
+void rat_framer(int len) {
+    //printf("rat_framer = %d\n", len);
+    capture_stop();
+    if (frames) free(frames);
+    frames = (short int *)malloc(len * sizeof(short int));
+    //printf("frames = %p\n", frames);
+    nframes = len;
+    capture_start(frames, len, NULL);
 }

@@ -10,7 +10,7 @@ endif
 bin/timer02: src/timer02.go
 	go build -o $@ $<
 
-bin/exec01: src/exec01.go
+bin/exec01: src/exec01.go lib/libamy.a lib/librma.a lib/librat.a
 	go mod tidy
 	go build -o $@ $<
 

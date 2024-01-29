@@ -13,6 +13,7 @@ import (
   "github.com/pborman/getopt/v2"
   "github.com/chzyer/readline"
   "strings"
+  "strconv"
   "io"
 )
 
@@ -22,6 +23,27 @@ var folder embed.FS
 func clk() int {
   var r C.uint = C.rat_clock()
   return int(r)
+}
+
+func frames() int {
+  var r C.int = C.rat_frames()
+  return int(r)
+}
+
+func framer(n int) {
+  C.rat_framer(C.int(n))
+}
+
+func samples() []int16 {
+    var sample = make([]int16, frames())
+    for i, _ := range sample {
+      sample[i] = int16(C.rat_frame_at(C.int(i)))
+    }
+    return sample
+}
+
+func amy(line string) {
+    C.rat_send(C.CString(line))
 }
 
 func main() {
@@ -69,6 +91,8 @@ func main() {
 
     time.Sleep(time.Duration(interval) * time.Millisecond)
 
+    var sample = make([]int16, 256)
+
     for {
       line,err := l.Readline()
       if err == readline.ErrInterrupt {
@@ -81,25 +105,43 @@ func main() {
         break
       }
       line = strings.TrimSpace(line)
-      switch {
-        case line == ":q":
-          goto exit
-        case line == "?c":
-          fmt.Println(clk())
-        case line == "?i":
-          //x1 ,_,_ := buf.ReadLine()
-          //fmt.Println(x1)
-          //json.Unmarshal(x1, &i0)
-        case line == "?n":
-          //x2,_,_ := buf.ReadLine()
-          //fmt.Println(string(x2))
-          //json.Unmarshal(x2, &n0);
-        default:
-          //fmt.Println("<" + line + ">")
-          //cmd.Write([]byte(line+"\n"))
-          C.rat_send(C.CString(line))
+      if len(line) == 0 {
+        continue
+      }
+      a := strings.Split(line, ";")
+      for _, ptok := range a {
+        tok := strings.TrimSpace(ptok)
+        if len(tok) == 0 {
+          continue
+        }
+        switch {
+          case tok[:1] == ":":
+            if len(tok) > 1 {
+              switch {
+                case tok[1] == 'q':
+                  goto exit
+              }
+            }
+          case tok == "?c":
+            fmt.Println(clk())
+          case tok == "?i":
+            fmt.Println(frames())
+          case tok == "?n":
+            sample = samples()
+            fmt.Println(sample)
+          case tok[:1] == "<":
+            if len(tok) > 1 {
+              n, _ := strconv.ParseInt(tok[1:], 10, 32)
+              framer(int(n))
+            } else {
+              framer(44100 * 2)
+            }
+          default:
+            amy(tok)
+        }
       }
     }
     exit:
     C.rat_stop()
+    fmt.Println("done")
 }

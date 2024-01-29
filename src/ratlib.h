@@ -10,6 +10,9 @@ void rat_stop(void);
 int rat_frames(void);
 void rat_frame_stop(void);
 void rat_frame_start(short int *sbuf, int slen, short int *n);
+int rat_nchans(void);
+int rat_frame_at(int n);
+void rat_framer(int len);
 unsigned int rat_clock(void);
 
 #endif
