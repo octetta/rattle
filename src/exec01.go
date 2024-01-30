@@ -17,7 +17,13 @@ import (
   "io"
   "github.com/kerrigan29a/drawille-go"
   //"math"
+  "path/filepath"
 )
+
+func matcher(p string, s string) bool {
+  f,_ := filepath.Match(p, s)
+  return f
+}
 
 //go:embed folder/*
 var folder embed.FS
@@ -60,14 +66,24 @@ func process(line string, now int) {
       // expand _ value
       // get two digits following, look up in meter and add to now
       fmt.Println("_")
+    case line[:1] == "t":
+      amy(line)
     default:
       out := "t" + snow + line
-      fmt.Println(out)
+      //fmt.Println(out)
       amy(out)
   }
 }
 
+func xlate(x int, a int, b int, c int, d int) int {
+  xp := (x-a) * (d-c)/(b-a)+c
+  return xp
+}
+
 func graph(a []int16) {
+  if len(a) == 0 {
+    return
+  }
   s := drawille.NewCanvas()
   //for x := 0; x < (900); x = x + 1 {
   //  y := int(math.Sin((math.Pi/180)*float64(x))*10 + 0.5)
@@ -79,25 +95,34 @@ func graph(a []int16) {
   if r <= 0 {
     r = 1
   }
-  //s.Set(0, -32000)
-  //s.Set(1, 32000)
   hi := a[0]
   lo := a[0]
-  for i := 1; i < len(a); i+=2 {
+  l := len(a)
+  for i := 1; i < l; i++ {
     if a[i] > hi {
       hi = a[i]
     }
     if a[i] < lo {
       lo = a[i]
     }
-    x0 := int(i/r)
-    //m := (a[i] + a[i+1]) / 2
-    m := a[i] / 64
-    y0 := int(m)
+  }
+  ht := hi-lo
+  if ht < 0 {
+    ht = -ht
+  }
+  for i := 0; i < l; i+=2 {
+    x0 := xlate(i, 0, l-1, 0, 160)
+    y0 := xlate(int(a[i]), int(lo), int(hi), 0, 40)
     s.Set(x0, y0)
   }
   fmt.Print(s)
-  fmt.Println(lo, hi)
+  fmt.Println(lo, hi, ht)
+  for i := 1; i < l; i+=2 {
+    x0 := xlate(i, 0, l-1, 0, 160)
+    y0 := xlate(int(a[i]), int(lo), int(hi), 0, 40)
+    s.Set(x0, y0)
+  }
+  fmt.Print(s)
 }
 
 func main() {
@@ -105,7 +130,8 @@ func main() {
   getopt.Flag(&list, 'l', "list output devices")
   device := 0
   getopt.FlagLong(&device, "device", 'd', "device for output")
-  interval := 250
+  var interval int64
+  interval = 250
   getopt.FlagLong(&interval, "interval", 'm', "millisecond between events")
   optHelp := getopt.BoolLong("help", 0, "help")
   getopt.Parse()
@@ -149,6 +175,7 @@ func main() {
 
     ticker := time.NewTicker(time.Duration(interval) * time.Millisecond)
     done := make(chan bool)
+    //tempo := make(chan int)
     var diff int64
 
     for {
@@ -186,6 +213,8 @@ func main() {
                   select {
                     case <- done:
                       return
+                    //case <- tempo:
+                    //  fmt.Println(tempo)
                     case t := <- ticker.C:
                       diff = t.Sub(l).Milliseconds()
                       if (n % 2) == 0 {
@@ -207,25 +236,33 @@ func main() {
             // : = system settings
             if len(tok) > 1 {
               switch {
-                case tok[1] == 'q':
+                case tok[:2] == ":q":
                   goto exit
+                case tok[:2] == ":m":
+                  if len(tok) > 2 {
+                    ms, err := strconv.ParseInt(tok[3:], 10, 64)
+                    if err == nil {
+                      ticker.Reset(time.Duration(ms) * time.Millisecond)
+                      interval = ms
+                    }
+                  } else {
+                    fmt.Println(interval)
+                  }
+                case matcher(":[a-z]", tok):
+                  fmt.Println("match :[a-z]")
+                case matcher(":[a-z]=*", tok):
+                  fmt.Println("match :[a-z]=*")
               }
             }
-          case tok[:1] == "?":
-            // ? = query
-            if len(tok) > 1 {
-              switch {
-                case tok[1] == 'p':
-                  graph(samples())
-                case tok[1] == 'i':
-                  fmt.Println(frames())
-                case tok[1] == 'n':
-                  sample = samples()
-                  fmt.Println(sample)
-                case tok[1] == 'c':
-                  fmt.Println(clk())
-              }
-            }
+          case tok == "?p":
+            graph(samples())
+          case tok == "?i":
+            fmt.Println(frames())
+          case tok == "?n":
+            sample = samples()
+            fmt.Println(sample)
+          case tok == "?c":
+            fmt.Println(clk())
           case tok[:1] == "~":
             // ~ = pause
             if len(tok) > 1 {
@@ -247,9 +284,11 @@ func main() {
             fmt.Println("/ = jump")
           case tok[:1] == "$":
             fmt.Println("$ = var")
-          default:
+          case matcher("[a-zA-Z]*", tok):
             //amy(tok)
             process(tok, clk())
+          default:
+            fmt.Println("???", tok)
         }
       }
     }
