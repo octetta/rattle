@@ -176,6 +176,10 @@ func main() {
         switch {
           case tok == "@0":
             if len(tok) > 1 {
+              amy("S20")
+              amy("S21")
+              amy("v20w7p45")
+              amy("v21w7p5")
               go func() {
                 l := time.Now()
                 for {
@@ -185,9 +189,9 @@ func main() {
                     case t := <- ticker.C:
                       diff = t.Sub(l).Milliseconds()
                       if (n % 2) == 0 {
-                        amy("v20w7p45l2")
+                        amy("v20l2")
                       } else {
-                        amy("v21w7p5l5")
+                        amy("v21l5")
                       }
                       l = t
                   }
