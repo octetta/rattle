@@ -194,20 +194,22 @@ func main() {
         continue
       }
       a := strings.Split(line, ";")
+      now := clk()
       for _, ptok := range a {
         tok := strings.TrimSpace(ptok)
         if len(tok) == 0 {
           continue
         }
-        n := 0
         switch {
           case tok == "@0":
             if len(tok) > 1 {
-              amy("S20")
-              amy("S21")
-              amy("v20w7p45")
-              amy("v21w7p5")
+              process("S20", now)
+              process("S30", now)
+              process("v20w7p45", now)
+              process("v30w7p5", now)
               go func() {
+                n := 0
+                m := 0
                 l := time.Now()
                 for {
                   select {
@@ -217,14 +219,21 @@ func main() {
                     //  fmt.Println(tempo)
                     case t := <- ticker.C:
                       diff = t.Sub(l).Milliseconds()
-                      if (n % 2) == 0 {
-                        amy("v20l2")
-                      } else {
-                        amy("v21l5")
+                      //fmt.Println(diff)
+                      m = n
+                      c := clk()
+                      switch {
+                        case m == 0:
+                          //amy("v20l2")
+                          process("v20l2", c)
+                          n = 1
+                        case m == 1:
+                          //amy("v30l2")
+                          process("v30l2", c)
+                          n = 0
                       }
                       l = t
                   }
-                  n++
                 }
               }()
             }
@@ -238,6 +247,12 @@ func main() {
               switch {
                 case tok[:2] == ":q":
                   goto exit
+                case tok[:2] == ":b":
+                  fmt.Println(int(C.rat_block_size()))
+                case tok[:2] == ":r":
+                  fmt.Println(int(C.rat_sample_rate()))
+                case tok[:2] == ":o":
+                  fmt.Println(int(C.rat_oscs()))
                 case tok[:2] == ":m":
                   if len(tok) > 2 {
                     ms, err := strconv.ParseInt(tok[3:], 10, 64)

@@ -104,6 +104,18 @@ int rat_nchans(void) {
     return AMY_NCHANS;
 }
 
+int rat_oscs(void) {
+    return AMY_OSCS;
+}
+
+int rat_sample_rate(void) {
+    return AMY_SAMPLE_RATE;
+}
+
+int rat_block_size(void) {
+    return AMY_BLOCK_SIZE;
+}
+
 short int rat_frame_at(int n) {
     if (frames && n > 0 && n < captured_frames()) {
         return frames[n];

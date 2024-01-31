@@ -14,5 +14,8 @@ int rat_nchans(void);
 int rat_frame_at(int n);
 void rat_framer(int len);
 unsigned int rat_clock(void);
+int rat_oscs(void);
+int rat_sample_rate(void);
+int rat_block_size(void);
 
 #endif
