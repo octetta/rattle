@@ -76,6 +76,9 @@ func process(line string, now int) {
 }
 
 func xlate(x int, a int, b int, c int, d int) int {
+  if (b-a) == 0 {
+    return 0
+  }
   xp := (x-a) * (d-c)/(b-a)+c
   return xp
 }
@@ -126,11 +129,18 @@ func graph(a []int16) {
 }
 
 func main() {
+  pat := [][]string{
+    []string{"v20l1","v20l0"},
+    []string{"v30l0","v30l1"},
+  }
+  //palt := make([][]string, 10)
+  ptr := []int{0,0}
   list := false
   getopt.Flag(&list, 'l', "list output devices")
   device := 0
   getopt.FlagLong(&device, "device", 'd', "device for output")
   var interval int64
+  var latency int64
   interval = 250
   getopt.FlagLong(&interval, "interval", 'm', "millisecond between events")
   optHelp := getopt.BoolLong("help", 0, "help")
@@ -175,7 +185,6 @@ func main() {
 
     ticker := time.NewTicker(time.Duration(interval) * time.Millisecond)
     done := make(chan bool)
-    //tempo := make(chan int)
     var diff int64
 
     for {
@@ -201,6 +210,13 @@ func main() {
           continue
         }
         switch {
+          case tok == "@":
+            for i:=0; i<len(pat); i++ {
+              for j:=0; j<len(pat[i]); j++ {
+                fmt.Println(i,j,pat[i][j])
+              }
+            }
+            
           case tok == "@0":
             if len(tok) > 1 {
               process("S20", now)
@@ -208,29 +224,22 @@ func main() {
               process("v20w7p45", now)
               process("v30w7p5", now)
               go func() {
-                n := 0
-                m := 0
                 l := time.Now()
                 for {
                   select {
                     case <- done:
                       return
-                    //case <- tempo:
-                    //  fmt.Println(tempo)
                     case t := <- ticker.C:
                       diff = t.Sub(l).Milliseconds()
-                      //fmt.Println(diff)
-                      m = n
+                      latency = diff
                       c := clk()
-                      switch {
-                        case m == 0:
-                          //amy("v20l2")
-                          process("v20l2", c)
-                          n = 1
-                        case m == 1:
-                          //amy("v30l2")
-                          process("v30l2", c)
-                          n = 0
+                      for i:=0; i<len(ptr); i++ {
+                        p := ptr[i];
+                        if p>=len(pat[i]) {
+                          p = 0
+                        }
+                        process(pat[i][p], c)
+                        ptr[i] = p+1
                       }
                       l = t
                   }
@@ -238,9 +247,15 @@ func main() {
               }()
             }
           case tok == "@1":
-            fmt.Println(diff)
-          case tok == "@2":
             done <- true
+          case tok == "@2":
+            pat[0] = append(pat[0], "v20l5")
+            pat[0] = append(pat[0], "v20l0")
+          case tok == "@3":
+            pat[1] = append(pat[1], "v30l1")
+            pat[1] = append(pat[1], "v30l0")
+            pat[1] = append(pat[1], "v40l1")
+            pat[1] = append(pat[1], "v40l0")
           case tok[:1] == ":":
             // : = system settings
             if len(tok) > 1 {
@@ -278,6 +293,8 @@ func main() {
             fmt.Println(sample)
           case tok == "?c":
             fmt.Println(clk())
+          case tok == "?l":
+            fmt.Println(latency)
           case tok[:1] == "~":
             // ~ = pause
             if len(tok) > 1 {
