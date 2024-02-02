@@ -18,6 +18,7 @@ import (
   "github.com/kerrigan29a/drawille-go"
   //"math"
   "path/filepath"
+  "regexp"
 )
 
 func matcher(p string, s string) bool {
@@ -128,13 +129,90 @@ func graph(a []int16) {
   fmt.Print(s)
 }
 
-func main() {
-  pat := [][]string{
-    []string{"v20l1","v20l0"},
-    []string{"v30l0","v30l1"},
+func _dump(one []string, n int, p int, r int) {
+  c := 0
+  for i:=0; i<len(one); i++ {
+    if len(one[i]) == 0 {
+      break
+    }
+    c++
   }
-  //palt := make([][]string, 10)
-  ptr := []int{0,0}
+  if c == 0 {
+    return
+  }
+  fmt.Printf("# %d len:%d ptr:%d run:%d\n", n, c, p, r)
+  for i:=0; i<len(one); i++ {
+    if len(one[i]) == 0 {
+      break
+    }
+    fmt.Printf(":%d/%d=%s\n",n,i,one[i])
+  }
+}
+
+func dump(l [][]string, p[] int, r[] int) {
+  for i:=0; i<len(l); i++ {
+    _dump(l[i], i, p[i], r[i])
+  }
+}
+
+func runner(done chan bool, metro chan int, pat [][]string, ptr []int, run []int) {
+  //l := time.Now()
+  interval := 250
+  ticker := time.NewTicker(time.Duration(interval) * time.Millisecond)
+  for {
+    select {
+      case <- done:
+        return
+      case interval = <- metro:
+        ticker.Reset(time.Duration(interval) * time.Millisecond)
+      case _ = <- ticker.C:
+      //case t := <- ticker.C:
+        //diff = t.Sub(l).Milliseconds()
+        //latency = diff
+        c := clk()
+        for i:=0; i<len(ptr); i++ {
+          if run[i] == 0 {
+            continue
+          }
+          p := ptr[i];
+          if p>=len(pat[i]) {
+            p = 0
+          }
+          if pat[i][p] == "/" {
+            p = 0
+          }
+          if len(pat[i][p]) > 0 {
+            process(pat[i][p], c)
+            ptr[i] = p+1
+          }
+        }
+        //l = t
+    }
+  }
+}
+
+func main() {
+  PLEN := 100
+  pat := make([][]string, 10)
+  ptr := make([]int, 10)
+  run := make([]int, 10)
+  for i:=0; i<len(ptr); i++ {
+    ptr[i] = 0
+    run[i] = 0
+    pat[i] = make([]string, PLEN)
+    for j:=0; j<len(pat[i]); j++ {
+      pat[i][j] = ""
+    }
+  }
+  pat[0][0] = "v20l1"
+  pat[0][1] = "v20l0"
+  pat[0][2] = "/"
+  pat[1][0] = "v30l0"
+  pat[1][1] = "v30l1"
+  pat[1][2] = "v30l2"
+  pat[1][3] = "v30l4"
+  pat[1][4] = "v30l0"
+  pat[1][5] = "/"
   list := false
   getopt.Flag(&list, 'l', "list output devices")
   device := 0
@@ -183,10 +261,11 @@ func main() {
 
     var sample = make([]int16, 256)
 
-    ticker := time.NewTicker(time.Duration(interval) * time.Millisecond)
     done := make(chan bool)
-    var diff int64
+    metro := make(chan int)
+    //var diff int64
 
+    re1 := regexp.MustCompile(`:[0-9]/*`)
     for {
       line,err := l.Readline()
       if err == readline.ErrInterrupt {
@@ -212,39 +291,33 @@ func main() {
         switch {
           case tok == "@":
             for i:=0; i<len(pat); i++ {
+              c := 0
               for j:=0; j<len(pat[i]); j++ {
-                fmt.Println(i,j,pat[i][j])
+                if len(pat[i][j]) == 0 {
+                  break
+                }
+                c++
+              }
+              if c == 0 {
+                continue
+              }
+              fmt.Printf("# %d len:%d ptr:%d\n", i, c, ptr[i])
+              for j:=0; j<len(pat[i]); j++ {
+                if len(pat[i][j]) == 0 {
+                  break
+                }
+                fmt.Printf(":%d/%d=%s\n",i,j,pat[i][j])
               }
             }
-            
           case tok == "@0":
             if len(tok) > 1 {
               process("S20", now)
               process("S30", now)
-              process("v20w7p45", now)
-              process("v30w7p5", now)
-              go func() {
-                l := time.Now()
-                for {
-                  select {
-                    case <- done:
-                      return
-                    case t := <- ticker.C:
-                      diff = t.Sub(l).Milliseconds()
-                      latency = diff
-                      c := clk()
-                      for i:=0; i<len(ptr); i++ {
-                        p := ptr[i];
-                        if p>=len(pat[i]) {
-                          p = 0
-                        }
-                        process(pat[i][p], c)
-                        ptr[i] = p+1
-                      }
-                      l = t
-                  }
-                }
-              }()
+              //process("v20w7p45", now)
+              process("v20w1f110", now)
+              //process("v30w7p5", now)
+              process("v30w1f220", now)
+              go runner(done, metro, pat, ptr, run)
             }
           case tok == "@1":
             done <- true
@@ -256,6 +329,10 @@ func main() {
             pat[1] = append(pat[1], "v30l0")
             pat[1] = append(pat[1], "v40l1")
             pat[1] = append(pat[1], "v40l0")
+          case tok == "@4":
+            pat[2][0] = "#"
+          case tok == "::":
+            dump(pat, ptr, run)
           case tok[:1] == ":":
             // : = system settings
             if len(tok) > 1 {
@@ -272,11 +349,38 @@ func main() {
                   if len(tok) > 2 {
                     ms, err := strconv.ParseInt(tok[3:], 10, 64)
                     if err == nil {
-                      ticker.Reset(time.Duration(ms) * time.Millisecond)
+                      //ticker.Reset(time.Duration(ms) * time.Millisecond)
                       interval = ms
+                      metro <- int(interval)
                     }
                   } else {
                     fmt.Println(interval)
+                  }
+                case matcher(":[0-9]", tok):
+                  n := int(tok[1]-48)
+                  _dump(pat[n], n, ptr[n], run[n])
+                case matcher(":[0-9]/[prs]", tok):
+                  n := int(tok[1]-48)
+                  a := tok[3:]
+                  switch {
+                    case a == "p":
+                      //fmt.Println("pause")
+                      run[n] = 0
+                    case a == "r":
+                      //fmt.Println("resume")
+                      run[n] = 1
+                    case a == "s":
+                      //fmt.Println("stop")
+                      run[n] = 0
+                      ptr[n] = 0
+                  }
+                case re1.MatchString(tok):
+                  n := int(tok[1]-48)
+                  arg := tok[3:]
+                  b := strings.Split(arg, "=")
+                  m, _ := strconv.ParseInt(b[0], 10, 32)
+                  if m >= 0 && m < int64(PLEN) {
+                    pat[n][m] = b[1]
                   }
                 case matcher(":[a-z]", tok):
                   fmt.Println("match :[a-z]")
