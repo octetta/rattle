@@ -6,19 +6,20 @@ package main
 import "C"
 
 import (
-  "fmt"
-  "time"
-  "os"
+  "bufio"
   "embed"
-  "github.com/pborman/getopt/v2"
+  "fmt"
   "github.com/chzyer/readline"
-  "strings"
-  "strconv"
-  "io"
+  "github.com/pborman/getopt/v2"
   "github.com/kerrigan29a/drawille-go"
+  "io"
   //"math"
+  "os"
   "path/filepath"
   "regexp"
+  "strconv"
+  "strings"
+  "time"
 )
 
 func matcher(p string, s string) bool {
@@ -43,8 +44,12 @@ func framer(n int) {
   C.rat_framer(C.int(n))
 }
 
+var sample []int16
+var interval int64
+var latency int64
+
 func samples() []int16 {
-    var sample = make([]int16, frames())
+    sample = make([]int16, frames())
     for i, _ := range sample {
       sample[i] = int16(C.rat_frame_at(C.int(i)))
     }
@@ -129,8 +134,9 @@ func graph(a []int16) {
   fmt.Print(s)
 }
 
-func _dump(one []string, n int, p int, r int) {
+func _dump(n int) {
   c := 0
+  one := pat[n]
   for i:=0; i<len(one); i++ {
     if len(one[i]) == 0 {
       break
@@ -140,7 +146,7 @@ func _dump(one []string, n int, p int, r int) {
   if c == 0 {
     return
   }
-  fmt.Printf("# %d len:%d ptr:%d run:%d\n", n, c, p, r)
+  fmt.Printf("# %d len:%d ptr:%d run:%d\n", n, c, ptr[n], run[n])
   for i:=0; i<len(one); i++ {
     if len(one[i]) == 0 {
       break
@@ -149,13 +155,13 @@ func _dump(one []string, n int, p int, r int) {
   }
 }
 
-func dump(l [][]string, p[] int, r[] int) {
-  for i:=0; i<len(l); i++ {
-    _dump(l[i], i, p[i], r[i])
+func dump() {
+  for i:=0; i<len(pat); i++ {
+    _dump(i)
   }
 }
 
-func runner(done chan bool, metro chan int, pat [][]string, ptr []int, run []int) {
+func runner(done chan bool, metro chan int) {
   //l := time.Now()
   interval := 250
   ticker := time.NewTicker(time.Duration(interval) * time.Millisecond)
@@ -191,11 +197,159 @@ func runner(done chan bool, metro chan int, pat [][]string, ptr []int, run []int
   }
 }
 
+func toker(tok string, now int, done chan bool, metro chan int) int {
+  re1 := regexp.MustCompile(`:[0-9]/*`)
+  switch {
+    case tok == "@":
+      for i:=0; i<len(pat); i++ {
+        c := 0
+        for j:=0; j<len(pat[i]); j++ {
+          if len(pat[i][j]) == 0 {
+            break
+          }
+          c++
+        }
+        if c == 0 {
+          continue
+        }
+        fmt.Printf("# %d len:%d ptr:%d\n", i, c, ptr[i])
+        for j:=0; j<len(pat[i]); j++ {
+          if len(pat[i][j]) == 0 {
+            break
+          }
+          fmt.Printf(":%d/%d=%s\n",i,j,pat[i][j])
+        }
+      }
+    case tok == "@0":
+      if len(tok) > 1 {
+        process("S20", now)
+        process("S30", now)
+        //process("v20w7p45", now)
+        process("v20w1f110", now)
+        //process("v30w7p5", now)
+        process("v30w1f220", now)
+        go runner(done, metro)
+      }
+    case tok == "@1":
+      done <- true
+    case tok == "@2":
+      pat[0] = append(pat[0], "v20l5")
+      pat[0] = append(pat[0], "v20l0")
+    case tok == "@3":
+      pat[1] = append(pat[1], "v30l1")
+      pat[1] = append(pat[1], "v30l0")
+      pat[1] = append(pat[1], "v40l1")
+      pat[1] = append(pat[1], "v40l0")
+    case tok == "@4":
+      pat[2][0] = "#"
+    case tok == "::":
+      dump()
+    case tok[:1] == ":":
+      // : = system settings
+      if len(tok) > 1 {
+        switch {
+          case tok[:2] == ":q":
+            //goto exit
+            return -1
+          case tok[:2] == ":b":
+            fmt.Println(int(C.rat_block_size()))
+          case tok[:2] == ":r":
+            fmt.Println(int(C.rat_sample_rate()))
+          case tok[:2] == ":o":
+            fmt.Println(int(C.rat_oscs()))
+          case tok[:2] == ":m":
+            if len(tok) > 2 {
+              ms, err := strconv.ParseInt(tok[3:], 10, 64)
+              if err == nil {
+                //ticker.Reset(time.Duration(ms) * time.Millisecond)
+                interval = ms
+                metro <- int(interval)
+              }
+            } else {
+              fmt.Println(interval)
+            }
+          case matcher(":[0-9]", tok):
+            n := int(tok[1]-48)
+            _dump(n)
+          case matcher(":[0-9]/[prs]", tok):
+            n := int(tok[1]-48)
+            a := tok[3:]
+            switch {
+              case a == "p":
+                //fmt.Println("pause")
+                run[n] = 0
+              case a == "r":
+                //fmt.Println("resume")
+                run[n] = 1
+              case a == "s":
+                //fmt.Println("stop")
+                run[n] = 0
+                ptr[n] = 0
+            }
+          case re1.MatchString(tok):
+            n := int(tok[1]-48)
+            arg := tok[3:]
+            b := strings.Split(arg, "=")
+            m, _ := strconv.ParseInt(b[0], 10, 32)
+            if m >= 0 && m < int64(len(pat[n])) {
+              pat[n][m] = b[1]
+            }
+          case matcher(":[a-z]", tok):
+            fmt.Println("match :[a-z]")
+          case matcher(":[a-z]=*", tok):
+            fmt.Println("match :[a-z]=*")
+        }
+      }
+    case tok == "?p":
+      graph(samples())
+    case tok == "?i":
+      fmt.Println(frames())
+    case tok == "?n":
+      sample = samples()
+      fmt.Println(sample)
+    case tok == "?c":
+      fmt.Println(clk())
+    case tok == "?l":
+      fmt.Println(latency)
+    case tok[:1] == "~":
+      // ~ = pause
+      if len(tok) > 1 {
+        ms, _ := strconv.ParseInt(tok[1:], 10, 32)
+        time.Sleep(time.Duration(ms) * time.Millisecond)
+      } else {
+        time.Sleep(time.Duration(interval) * time.Millisecond)
+      }
+    case tok[:1] == "<":
+      // < = capture frames
+      if len(tok) > 1 {
+        ms, _ := strconv.ParseInt(tok[1:], 10, 32)
+        n := (ms * 44100) / 1000
+        framer(int(n))
+      } else {
+        framer(44100 * 2)
+      }
+    case tok[:1] == "/":
+      fmt.Println("/ = jump")
+    case tok[:1] == "$":
+      fmt.Println("$ = var")
+    case matcher("[a-zA-Z]*", tok):
+      //amy(tok)
+      process(tok, clk())
+    default:
+      fmt.Println("???", tok)
+  }
+  return 0
+}
+
+var pat [][]string
+var ptr []int
+var run []int
+
 func main() {
   PLEN := 100
-  pat := make([][]string, 10)
-  ptr := make([]int, 10)
-  run := make([]int, 10)
+  pat = make([][]string, 10)
+  ptr = make([]int, 10)
+  run = make([]int, 10)
   for i:=0; i<len(ptr); i++ {
     ptr[i] = 0
     run[i] = 0
@@ -217,11 +371,11 @@ func main() {
   getopt.Flag(&list, 'l', "list output devices")
   device := 0
   getopt.FlagLong(&device, "device", 'd', "device for output")
-  var interval int64
-  var latency int64
   interval = 250
   getopt.FlagLong(&interval, "interval", 'm', "millisecond between events")
   optHelp := getopt.BoolLong("help", 0, "help")
+  usefile := ""
+  getopt.FlagLong(&usefile, "file", 'f', "read list of rattle commands")
   getopt.Parse()
 
   if *optHelp {
@@ -249,6 +403,21 @@ func main() {
 
   C.rat_start()
 
+  //
+  if usefile != "" {
+    file, err := os.Open(usefile)
+    if err != nil {
+      fmt.Println("can not open ", usefile)
+    } else {
+      scanner := bufio.NewScanner(file)
+      for scanner.Scan() {
+        fmt.Println(scanner.Text())
+      }
+      file.Close()
+    }
+  }
+  //
+
     l,_ := readline.NewEx(&readline.Config{
       Prompt: "# ",
       HistoryFile: "/tmp/readline.tmp",
@@ -259,13 +428,13 @@ func main() {
 
     time.Sleep(time.Duration(interval) * time.Millisecond)
 
-    var sample = make([]int16, 256)
+    //var sample = make([]int16, 256)
 
     done := make(chan bool)
     metro := make(chan int)
     //var diff int64
 
-    re1 := regexp.MustCompile(`:[0-9]/*`)
+    //re1 := regexp.MustCompile(`:[0-9]/*`)
     for {
       line,err := l.Readline()
       if err == readline.ErrInterrupt {
@@ -288,6 +457,8 @@ func main() {
         if len(tok) == 0 {
           continue
         }
+
+        /*
         switch {
           case tok == "@":
             for i:=0; i<len(pat); i++ {
@@ -317,7 +488,7 @@ func main() {
               process("v20w1f110", now)
               //process("v30w7p5", now)
               process("v30w1f220", now)
-              go runner(done, metro, pat, ptr, run)
+              go runner(done, metro)
             }
           case tok == "@1":
             done <- true
@@ -332,7 +503,7 @@ func main() {
           case tok == "@4":
             pat[2][0] = "#"
           case tok == "::":
-            dump(pat, ptr, run)
+            dump()
           case tok[:1] == ":":
             // : = system settings
             if len(tok) > 1 {
@@ -358,7 +529,7 @@ func main() {
                   }
                 case matcher(":[0-9]", tok):
                   n := int(tok[1]-48)
-                  _dump(pat[n], n, ptr[n], run[n])
+                  _dump(n)
                 case matcher(":[0-9]/[prs]", tok):
                   n := int(tok[1]-48)
                   a := tok[3:]
@@ -425,6 +596,10 @@ func main() {
             process(tok, clk())
           default:
             fmt.Println("???", tok)
+        }
+        */
+        if toker(tok, now, done, metro) < 0 {
+          goto exit
         }
       }
     }
