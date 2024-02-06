@@ -225,26 +225,10 @@ func toker(tok string, now int) int {
       }
     case tok == "@0":
       if len(tok) > 1 {
-        process("S20", now)
-        process("S30", now)
-        //process("v20w7p45", now)
-        process("v20w1f110", now)
-        //process("v30w7p5", now)
-        process("v30w1f220", now)
         go runner()
       }
     case tok == "@1":
       done <- true
-    case tok == "@2":
-      pat[0] = append(pat[0], "v20l5")
-      pat[0] = append(pat[0], "v20l0")
-    case tok == "@3":
-      pat[1] = append(pat[1], "v30l1")
-      pat[1] = append(pat[1], "v30l0")
-      pat[1] = append(pat[1], "v40l1")
-      pat[1] = append(pat[1], "v40l0")
-    case tok == "@4":
-      pat[2][0] = "#"
     case tok == "::":
       dump()
     case tok[:1] == ":":
@@ -359,15 +343,6 @@ func main() {
       pat[i][j] = ""
     }
   }
-  pat[0][0] = "v20l1"
-  pat[0][1] = "v20l0"
-  pat[0][2] = "/"
-  pat[1][0] = "v30l0"
-  pat[1][1] = "v30l1"
-  pat[1][2] = "v30l2"
-  pat[1][3] = "v30l4"
-  pat[1][4] = "v30l0"
-  pat[1][5] = "/"
   list := false
   getopt.Flag(&list, 'l', "list output devices")
   device := 0
@@ -410,7 +385,9 @@ func main() {
       fmt.Println("can not open ", usefile)
     } else {
       scanner := bufio.NewScanner(file)
+      now := clk()
       for scanner.Scan() {
+        toker(scanner.Text(), now)
         fmt.Println(scanner.Text())
       }
       file.Close()
