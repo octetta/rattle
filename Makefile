@@ -83,6 +83,7 @@ lib/libamy.a: \
 	gcc -c amy/src/filters.c      -o lib/filters.o
 	gcc -c amy/src/log2_exp2.c    -o lib/log2_exp2.o
 	gcc -c amy/src/oscillators.c  -o lib/oscillators.o
+	gcc -c amy/src/patches.c      -o lib/patches.o
 	gcc -c amy/src/partials.c     -o lib/partials.o
 	gcc -c amy/src/pcm.c          -o lib/pcm.o
 	ar -cvq lib/libamy.a \
@@ -93,6 +94,7 @@ lib/libamy.a: \
     lib/filters.o \
     lib/log2_exp2.o \
     lib/oscillators.o \
+    lib/patches.o \
     lib/partials.o \
     lib/pcm.o \
     #

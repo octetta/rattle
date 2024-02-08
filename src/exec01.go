@@ -16,6 +16,7 @@ import (
   //"math"
   "os"
   "path/filepath"
+  //"reflect"
   "regexp"
   "strconv"
   "strings"
@@ -144,7 +145,7 @@ func _dump(n int) {
   if c == 0 {
     return
   }
-  fmt.Printf("# %d len:%d ptr:%d run:%d\n", n, c, ptr[n], run[n])
+  fmt.Printf("# %d len:%d ptr:%d run:%d mod:%d\n", n, c, ptr[n], run[n], mod[n])
   for i:=0; i<len(one); i++ {
     if len(one[i]) == 0 {
       break
@@ -168,6 +169,7 @@ var metro chan int
 func runner() {
   l := time.Now()
   interval := 250
+  pulse := 0
   ticker := time.NewTicker(time.Duration(interval) * time.Millisecond)
   for {
     select {
@@ -183,52 +185,44 @@ func runner() {
           if run[i] == 0 {
             continue
           }
-          p := ptr[i];
-          if p>=len(pat[i]) {
-            p = 0
-          }
-          if pat[i][p] == "/" {
-            p = 0
-          }
-          if len(pat[i][p]) > 0 {
-            process(pat[i][p], c)
-            ptr[i] = p+1
+          if (pulse % mod[i]) == 0 {
+            // execute step
+            p := ptr[i];
+            if p>=len(pat[i]) {
+              p = 0
+            }
+            if pat[i][p] == "/" {
+              p = 0
+            }
+            if len(pat[i][p]) > 0 {
+              process(pat[i][p], c)
+              ptr[i] = p+1
+            }
+            //
           }
         }
         l = t
+        pulse++
     }
   }
 }
 
+var re1 *regexp.Regexp
+var re2 *regexp.Regexp
+
 func toker(tok string, now int) int {
-  re1 := regexp.MustCompile(`:[0-9]/*`)
+  //fmt.Println("# got ", tok, now)
   switch {
-    case tok == "@":
-      for i:=0; i<len(pat); i++ {
-        c := 0
-        for j:=0; j<len(pat[i]); j++ {
-          if len(pat[i][j]) == 0 {
-            break
-          }
-          c++
-        }
-        if c == 0 {
-          continue
-        }
-        fmt.Printf("# %d len:%d ptr:%d\n", i, c, ptr[i])
-        for j:=0; j<len(pat[i]); j++ {
-          if len(pat[i][j]) == 0 {
-            break
-          }
-          fmt.Printf(":%d/%d=%s\n",i,j,pat[i][j])
-        }
-      }
-    case tok == "@0":
-      if len(tok) > 1 {
-        go runner()
-      }
-    case tok == "@1":
-      done <- true
+    case tok == "":
+      return 0
+    case tok[:1] == "#":
+      return 0
+    //case tok == "@0":
+    //  if len(tok) > 1 {
+    //    go runner()
+    //  }
+    //case tok == "@1":
+    //  done <- true
     case tok == "::":
       dump()
     case tok[:1] == ":":
@@ -248,7 +242,9 @@ func toker(tok string, now int) int {
               ms, err := strconv.ParseInt(tok[3:], 10, 64)
               if err == nil {
                 interval = ms
+                fmt.Println("# sending new metro time", interval)
                 metro <- int(interval)
+                fmt.Println("# after metro send")
               }
             } else {
               fmt.Println(interval)
@@ -279,10 +275,38 @@ func toker(tok string, now int) int {
             if m >= 0 && m < int64(len(pat[n])) {
               pat[n][m] = b[1]
             }
+          case re2.MatchString(tok):
+            // %4=5
+            // 0123
+            n := int(tok[1]-48)
+            arg := tok[3:]
+            m, _ := strconv.ParseInt(arg, 10, 32)
+            if m >= 0 && m < int64(len(mod)) {
+              mod[n] = int(m)
+            }
           case matcher(":[a-z]", tok):
             fmt.Println("match :[a-z]")
           case matcher(":[a-z]=*", tok):
             fmt.Println("match :[a-z]=*")
+        }
+      }
+    case tok[:1] == "%":
+      if len(tok) == 1 {
+        for i:=0; i<len(mod); i++ {
+          fmt.Printf("%%%d=%d\n", i, mod[i])
+        }
+      } else {
+        if re2.MatchString(tok) {
+          // %4=5
+          // 0123
+          n := int(tok[1]-48)
+          arg := tok[3:]
+          m, _ := strconv.ParseInt(arg, 10, 32)
+          if m >= 0 && m < int64(len(mod)) {
+            mod[n] = int(m)
+          }
+        } else {
+          fmt.Println("% i do not understand")
         }
       }
     case tok == "?p":
@@ -328,16 +352,19 @@ func toker(tok string, now int) int {
 
 var pat [][]string
 var ptr []int
+var mod []int
 var run []int
 
 func main() {
   PLEN := 100
   pat = make([][]string, 10)
   ptr = make([]int, 10)
+  mod = make([]int, 10)
   run = make([]int, 10)
   for i:=0; i<len(ptr); i++ {
     ptr[i] = 0
     run[i] = 0
+    mod[i] = 4
     pat[i] = make([]string, PLEN)
     for j:=0; j<len(pat[i]); j++ {
       pat[i][j] = ""
@@ -364,6 +391,9 @@ func main() {
 		os.Exit(0)
   }
 
+  re1 = regexp.MustCompile(`:[0-9]/*`)
+  re2 = regexp.MustCompile(`%[0-9]=*`)
+
 	cache,_ := os.UserCacheDir()
 	fmt.Println(string(cache))
   
@@ -378,6 +408,11 @@ func main() {
   C.rat_device(C.int(device))
 
   C.rat_start()
+
+  done = make(chan bool)
+  metro = make(chan int)
+
+  go runner()
 
   if usefile != "" {
     file, err := os.Open(usefile)
@@ -403,9 +438,6 @@ func main() {
   l.CaptureExitSignal()
 
   time.Sleep(time.Duration(interval) * time.Millisecond)
-
-  done = make(chan bool)
-  metro = make(chan int)
 
   //re1 := regexp.MustCompile(`:[0-9]/*`)
   for {
@@ -436,6 +468,7 @@ func main() {
     }
   }
   exit:
+  done <- true
   C.rat_stop()
   fmt.Println("done")
 }
