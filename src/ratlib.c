@@ -2,6 +2,8 @@
 #include <string.h>
 
 #include "amy.h"
+//#include "pcm_tiny.h"
+#include "examples.h"
 #include "rma.h"
 
 #define SLEN (44100)
@@ -12,6 +14,49 @@ void rat_device(int d) {
 
 void rat_list(void) {
     amy_print_devices();
+}
+
+void rat_example(int n) {
+#if 0
+    switch (n) {
+        case 0:
+            example_reverb();
+            break;
+        case 1:
+            example_chorus();
+            break;
+        case 2:
+            example_ks(amy_sysclock());
+            break;
+        case 3:
+            bleep(amy_sysclock());
+            break;
+        case 4:
+            example_fm(amy_sysclock());
+            break;
+        case 5:
+            example_multimbral_fm(amy_sysclock(), 10);
+            break;
+        case 6:
+            example_drums(amy_sysclock(), 8);
+            break;
+        case 7:
+            example_sine(amy_sysclock());
+            break;
+        case 8:
+            example_patches();
+            break;
+        case 9:
+            example_juno_chord();
+            break;
+        case 10:
+            example_dx7_chord();
+            break;
+        case 11:
+            example_voice_alloc();
+            break;
+    }
+#endif
 }
 
 char *rat_scan(char *input) {

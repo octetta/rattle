@@ -69,6 +69,7 @@ lib/libamy.a: \
 	amy/src/amy.c \
 	amy/src/delay.c \
 	amy/src/envelope.c \
+	amy/src/examples.c \
 	amy/src/filters.c \
 	amy/src/log2_exp2.c \
 	amy/src/oscillators.c \
@@ -80,6 +81,7 @@ lib/libamy.a: \
 	gcc -c amy/src/amy.c          -o lib/amy.o
 	gcc -c amy/src/delay.c        -o lib/delay.o
 	gcc -c amy/src/envelope.c     -o lib/envelope.o
+	gcc -c amy/src/examples.c     -o lib/examples.o
 	gcc -c amy/src/filters.c      -o lib/filters.o
 	gcc -c amy/src/log2_exp2.c    -o lib/log2_exp2.o
 	gcc -c amy/src/oscillators.c  -o lib/oscillators.o
@@ -91,6 +93,7 @@ lib/libamy.a: \
     lib/amy.o \
     lib/delay.o \
     lib/envelope.o \
+    lib/examples.o \
     lib/filters.o \
     lib/log2_exp2.o \
     lib/oscillators.o \

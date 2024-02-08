@@ -17,5 +17,6 @@ unsigned int rat_clock(void);
 int rat_oscs(void);
 int rat_sample_rate(void);
 int rat_block_size(void);
+void rat_example(int n);
 
 #endif

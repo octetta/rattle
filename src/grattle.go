@@ -60,6 +60,11 @@ func amy(line string) {
     C.rat_send(C.CString(line))
 }
 
+var re1 *regexp.Regexp
+var re2 *regexp.Regexp
+var re3 *regexp.Regexp
+var re4 *regexp.Regexp
+
 func process(line string, now int) {
   // expand $ value
   b := strings.Split(line, "$")
@@ -81,13 +86,38 @@ func process(line string, now int) {
   snow := strconv.FormatInt(int64(now), 10)
   switch {
     case line[:1] == "+":
-      // expand + value
-      // get number following and add to now
-      fmt.Println("+")
+      m1 := re3.FindStringSubmatch(line)
+      if len(m1) > 0 {
+        ms := re3.SubexpIndex("Ms")
+        rest := re3.SubexpIndex("Rest")
+        //fmt.Println(m1[ms], m1[rest])
+        if len(m1[rest]) > 0 {
+          n,_ := strconv.Atoi(m1[ms])
+          s := fmt.Sprintf("t%d%s", n+now, m1[rest])
+          //fmt.Println("=> ", s)
+          amy(s)
+        }
+      }
     case line[:1] == "_":
-      // expand _ value
-      // get two digits following, look up in meter and add to now
-      fmt.Println("_")
+      m1 := re4.FindStringSubmatch(line)
+      if len(m1) > 0 {
+        //fmt.Println("m1 -> ", m1)
+        top := re4.SubexpIndex("Top")
+        bot := re4.SubexpIndex("Bot")
+        rest := re4.SubexpIndex("Rest")
+        if len(m1[rest]) > 0 {
+          //fmt.Println(" top -> ", m1[top])
+          //fmt.Println(" bot -> ", m1[bot])
+          //fmt.Println("rest -> ", m1[rest])
+          i,_ := strconv.Atoi(m1[top])
+          i--
+          j,_ := strconv.Atoi(m1[bot])
+          j--
+          s := fmt.Sprintf("t%d%s", meter[i][j]+now, m1[rest])
+          //fmt.Println("=> ", s)
+          amy(s)
+        }
+      }
     case line[:1] == "t":
       amy(line)
     default:
@@ -138,7 +168,7 @@ func graph(a []int16) {
   tx,ty := ansi.TermSize()
   for i := 0; i < l; i+=2 {
     x0 := xlate(i, 0, l-1, 0, tx*2-2)
-    y0 := xlate(int(a[i]), int(lo), int(hi), 0, ty)
+    y0 := xlate(int(a[i]), int(lo), int(hi), 0, ty/2)
     s.Set(x0, y0)
   }
   ansi.SetFg(ansi.Green)
@@ -148,7 +178,7 @@ func graph(a []int16) {
   fmt.Println(lo, hi, ht)
   for i := 1; i < l; i+=2 {
     x0 := xlate(i, 0, l-1, 0, tx*2-2)
-    y0 := xlate(int(a[i]), int(lo), int(hi), 0, ty)
+    y0 := xlate(int(a[i]), int(lo), int(hi), 0, ty/2)
     s.Set(x0, y0)
   }
   ansi.SetFg(ansi.Purple)
@@ -185,7 +215,7 @@ func dump() {
   }
 }
 
-var interval int64
+var interval int
 var latency int64
 
 var done chan bool
@@ -193,7 +223,7 @@ var metro chan int
 
 func runner() {
   l := time.Now()
-  interval := 250
+  interval = 250
   pulse := 0
   ticker := time.NewTicker(time.Duration(interval) * time.Millisecond)
   for {
@@ -232,11 +262,20 @@ func runner() {
   }
 }
 
-var re1 *regexp.Regexp
-var re2 *regexp.Regexp
-
 func toker(tok string, now int) int {
-  //fmt.Println("# got ", tok, now)
+  all := strings.Split(tok, ";")
+  var r = 0
+  if len(all) > 1 {
+    fmt.Println(all)
+  }
+  for _, v := range all {
+    r = _toker(v, now)
+  }
+  // return the last value in the sequence
+  return r
+}
+
+func _toker(tok string, now int) int {
   switch {
     case tok == "":
       return 0
@@ -260,10 +299,18 @@ func toker(tok string, now int) int {
             fmt.Println(int(C.rat_oscs()))
           case tok[:2] == ":m":
             if len(tok) > 2 {
-              ms, err := strconv.ParseInt(tok[3:], 10, 64)
+              ms, err := strconv.ParseInt(tok[3:], 10, 32)
               if err == nil {
-                interval = ms
+                interval = int(ms)
                 metro <- int(interval)
+                //
+                for i:=0; i<8; i++ {
+                  meter[i] = make([]int, 8)
+                  for j:=0; j<8; j++ {
+                    meter[i][j] = (interval * 4) * (i+1) / (j+1)
+                  }
+                }
+                //
               }
             } else {
               fmt.Println(interval)
@@ -292,7 +339,9 @@ func toker(tok string, now int) int {
             b := strings.SplitN(arg, "=", 2)
             m, _ := strconv.ParseInt(b[0], 10, 32)
             if m >= 0 && m < int64(len(pat[n])) {
-              pat[n][m] = b[1]
+              //pat[n][m] = b[1]
+              s := strings.ReplaceAll(b[1], "&", ";")
+              pat[n][m] = s
             }
           case re2.MatchString(tok):
             // %4=5
@@ -342,6 +391,12 @@ func toker(tok string, now int) int {
       fmt.Println(clk())
     case tok == "?l":
       fmt.Println(latency)
+    case tok[:1] == "@":
+      // @ = amy example
+      if len(tok) > 1 {
+        ex, _ := strconv.ParseInt(tok[1:], 10, 32)
+        C.rat_example(C.int(ex))
+      }
     case tok[:1] == "~":
       // ~ = pause
       if len(tok) > 1 {
@@ -386,6 +441,37 @@ func toker(tok string, now int) int {
     case matcher("[a-zA-Z]*", tok):
       //amy(tok)
       process(tok, clk())
+    case tok[:1] == "+":
+      process(tok, clk())
+    case tok[:1] == "_":
+      if len(tok) == 1 {
+        // show whole table
+        for i:=0; i<8; i++ {
+          for j:=0; j<8; j++ {
+            fmt.Printf("_%d%d %-5d  ", i+1, j+1, meter[i][j])
+          }
+          fmt.Println("")
+        }
+      } else if len(tok) == 2 {
+        // show one row
+        fmt.Println("row --")
+        i := int(tok[1]-48)
+        i--
+        for j:=0; j<8; j++ {
+          fmt.Printf("_%d%d %-5d  ", i+1, j+1, meter[i][j])
+        }
+        fmt.Println("")
+      } else if len(tok) == 3 {
+        fmt.Println("one --")
+        // show one entry
+        i := int(tok[1]-48)
+        i--
+        j := int(tok[2]-48)
+        j--
+        fmt.Printf("_%d%d %-5d\n", i+1, j+1, meter[i][j])
+      } else {
+        process(tok, clk())
+      }
     default:
       fmt.Println("???", tok)
   }
@@ -398,6 +484,7 @@ var mod []int
 var run []int
 var usr []string
 var key []string
+var meter [][]int
 
 var PLEN int
 var VLEN int
@@ -418,23 +505,39 @@ func main() {
       pat[i][j] = ""
     }
   }
+  
   usr = make([]string, VLEN)
   key = make([]string, VLEN)
   for i:=0; i<VLEN; i++ {
     usr[i] = ""
     key[i] = string(i+97)
   }
+
+  meter = make([][]int, 8)
+  
   list := false
   getopt.Flag(&list, 'l', "list output devices")
+  
   device := 0
   getopt.FlagLong(&device, "device", 'd', "device for output")
+
   interval = 250
   getopt.FlagLong(&interval, "interval", 'm', "millisecond between events")
+  
   optHelp := getopt.BoolLong("help", 0, "help")
+  
   usefile := ""
   getopt.FlagLong(&usefile, "file", 'f', "read list of rattle commands")
+  
   getopt.Parse()
 
+  for i:=0; i<8; i++ {
+    meter[i] = make([]int, 8)
+    for j:=0; j<8; j++ {
+      meter[i][j] = (interval * 4) * (i+1) / (j+1)
+    }
+  }
+  
   if *optHelp {
     getopt.Usage()
     os.Exit(0)
@@ -447,6 +550,8 @@ func main() {
 
   re1 = regexp.MustCompile(`:[0-9]/*`)
   re2 = regexp.MustCompile(`%[0-9]=*`)
+  re3 = regexp.MustCompile(`\+(?P<Ms>\d+)(?P<Rest>.*)`)
+  re4 = regexp.MustCompile(`_(?P<Top>\d)(?P<Bot>\d)(?P<Rest>.*)`)
 
 	cache,_ := os.UserCacheDir()
 	fmt.Println(string(cache))
@@ -493,7 +598,6 @@ func main() {
 
   time.Sleep(time.Duration(interval) * time.Millisecond)
 
-  //re1 := regexp.MustCompile(`:[0-9]/*`)
   for {
     line,err := l.Readline()
     if err == readline.ErrInterrupt {
