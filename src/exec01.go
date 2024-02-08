@@ -9,6 +9,7 @@ import (
   "bufio"
   "embed"
   "fmt"
+  "github.com/bit101/go-ansi"
   "github.com/chzyer/readline"
   "github.com/pborman/getopt/v2"
   "github.com/kerrigan29a/drawille-go"
@@ -134,19 +135,25 @@ func graph(a []int16) {
   if ht < 0 {
     ht = -ht
   }
+  tx,ty := ansi.TermSize()
   for i := 0; i < l; i+=2 {
-    x0 := xlate(i, 0, l-1, 0, 160)
-    y0 := xlate(int(a[i]), int(lo), int(hi), 0, 40)
+    x0 := xlate(i, 0, l-1, 0, tx*2-2)
+    y0 := xlate(int(a[i]), int(lo), int(hi), 0, ty)
     s.Set(x0, y0)
   }
+  ansi.SetFg(ansi.Green)
   fmt.Print(s)
+  ansi.ResetAll()
+  ansi.SetFg(ansi.Red)
   fmt.Println(lo, hi, ht)
   for i := 1; i < l; i+=2 {
-    x0 := xlate(i, 0, l-1, 0, 160)
-    y0 := xlate(int(a[i]), int(lo), int(hi), 0, 40)
+    x0 := xlate(i, 0, l-1, 0, tx*2-2)
+    y0 := xlate(int(a[i]), int(lo), int(hi), 0, ty)
     s.Set(x0, y0)
   }
+  ansi.SetFg(ansi.Purple)
   fmt.Print(s)
+  ansi.ResetAll()
 }
 
 func _dump(n int, all bool) {
@@ -245,6 +252,8 @@ func toker(tok string, now int) int {
             return -1
           case tok[:2] == ":b":
             fmt.Println(int(C.rat_block_size()))
+          case tok[:2] == ":c":
+            ansi.ClearScreen()
           case tok[:2] == ":r":
             fmt.Println(int(C.rat_sample_rate()))
           case tok[:2] == ":o":
