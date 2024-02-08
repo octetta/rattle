@@ -61,6 +61,22 @@ func amy(line string) {
 
 func process(line string, now int) {
   // expand $ value
+  b := strings.Split(line, "$")
+  if len(b) > 1 {
+    changed := false
+    for i:=1; i<len(b); i++ {
+      if len(b[i]) > 0 && b[i][0] >= 'a' && b[i][0] <= 'z' {
+        n := b[i][0] - 97
+        c := usr[n] + b[i][1:]
+        b[i] = c
+        changed = true
+      } else {
+      }
+    }
+    if changed {
+      line = strings.Join(b, "")
+    }
+  }
   snow := strconv.FormatInt(int64(now), 10)
   switch {
     case line[:1] == "+":
@@ -133,7 +149,7 @@ func graph(a []int16) {
   fmt.Print(s)
 }
 
-func _dump(n int) {
+func _dump(n int, all bool) {
   c := 0
   one := pat[n]
   for i:=0; i<len(one); i++ {
@@ -146,17 +162,19 @@ func _dump(n int) {
     return
   }
   fmt.Printf("# %d len:%d ptr:%d run:%d mod:%d\n", n, c, ptr[n], run[n], mod[n])
+  if all {
   for i:=0; i<len(one); i++ {
     if len(one[i]) == 0 {
       break
     }
     fmt.Printf(":%d/%d=%s\n",n,i,one[i])
   }
+  }
 }
 
 func dump() {
   for i:=0; i<len(pat); i++ {
-    _dump(i)
+    _dump(i, false)
   }
 }
 
@@ -217,12 +235,6 @@ func toker(tok string, now int) int {
       return 0
     case tok[:1] == "#":
       return 0
-    //case tok == "@0":
-    //  if len(tok) > 1 {
-    //    go runner()
-    //  }
-    //case tok == "@1":
-    //  done <- true
     case tok == "::":
       dump()
     case tok[:1] == ":":
@@ -242,16 +254,14 @@ func toker(tok string, now int) int {
               ms, err := strconv.ParseInt(tok[3:], 10, 64)
               if err == nil {
                 interval = ms
-                fmt.Println("# sending new metro time", interval)
                 metro <- int(interval)
-                fmt.Println("# after metro send")
               }
             } else {
               fmt.Println(interval)
             }
           case matcher(":[0-9]", tok):
             n := int(tok[1]-48)
-            _dump(n)
+            _dump(n, true)
           case matcher(":[0-9]/[prs]", tok):
             n := int(tok[1]-48)
             a := tok[3:]
@@ -270,7 +280,7 @@ func toker(tok string, now int) int {
           case re1.MatchString(tok):
             n := int(tok[1]-48)
             arg := tok[3:]
-            b := strings.Split(arg, "=")
+            b := strings.SplitN(arg, "=", 2)
             m, _ := strconv.ParseInt(b[0], 10, 32)
             if m >= 0 && m < int64(len(pat[n])) {
               pat[n][m] = b[1]
@@ -295,6 +305,9 @@ func toker(tok string, now int) int {
         for i:=0; i<len(mod); i++ {
           fmt.Printf("%%%d=%d\n", i, mod[i])
         }
+      } else if len(tok) == 2 {
+        n := int(tok[1] - 48)
+        fmt.Printf("%%%d=%d\n", n, mod[n])
       } else {
         if re2.MatchString(tok) {
           // %4=5
@@ -302,7 +315,7 @@ func toker(tok string, now int) int {
           n := int(tok[1]-48)
           arg := tok[3:]
           m, _ := strconv.ParseInt(arg, 10, 32)
-          if m >= 0 && m < int64(len(mod)) {
+          if n >= 0 && n < len(mod) {
             mod[n] = int(m)
           }
         } else {
@@ -340,7 +353,27 @@ func toker(tok string, now int) int {
     case tok[:1] == "/":
       fmt.Println("/ = jump")
     case tok[:1] == "$":
-      fmt.Println("$ = var")
+      if len(tok) == 1 {
+        for i:=0; i<VLEN; i++ {
+          if len(usr[i]) > 0 {
+            fmt.Printf("$%s=%s\n", key[i], usr[i])
+          }
+        }
+      } else if len(tok) == 2 {
+        n := int(tok[1]-97)
+        if (n >= 0) && (n <= 26) {
+          fmt.Println(usr[n])
+        }
+      } else if len(tok) > 2 {
+        n := int(tok[1]-97)
+        // $a=he
+        // 0123
+        if (n >= 0) && (n <= 26) {
+          usr[n] = tok[3:]
+        }
+      } else {
+        fmt.Println("$ ???")
+      }
     case matcher("[a-zA-Z]*", tok):
       //amy(tok)
       process(tok, clk())
@@ -354,9 +387,15 @@ var pat [][]string
 var ptr []int
 var mod []int
 var run []int
+var usr []string
+var key []string
+
+var PLEN int
+var VLEN int
 
 func main() {
-  PLEN := 100
+  PLEN = 100
+  VLEN = 26
   pat = make([][]string, 10)
   ptr = make([]int, 10)
   mod = make([]int, 10)
@@ -369,6 +408,12 @@ func main() {
     for j:=0; j<len(pat[i]); j++ {
       pat[i][j] = ""
     }
+  }
+  usr = make([]string, VLEN)
+  key = make([]string, VLEN)
+  for i:=0; i<VLEN; i++ {
+    usr[i] = ""
+    key[i] = string(i+97)
   }
   list := false
   getopt.Flag(&list, 'l', "list output devices")
@@ -423,7 +468,7 @@ func main() {
       now := clk()
       for scanner.Scan() {
         toker(scanner.Text(), now)
-        fmt.Println(scanner.Text())
+        //fmt.Println(scanner.Text())
       }
       file.Close()
     }
