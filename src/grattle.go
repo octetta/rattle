@@ -250,8 +250,12 @@ func runner() {
               p = 0
             }
             if len(pat[i][p]) > 0 {
-              process(pat[i][p], c)
+              //process(pat[i][p], c)
+              toker(pat[i][p], c)
               ptr[i] = p+1
+            } else {
+              run[i] = 0
+              ptr[i] = 0
             }
             //
           }

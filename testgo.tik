@@ -82,7 +82,7 @@ $n=n72
 :3/4=/
 
 # ampersand is used to separate statement in a step...
-# internally this is turned into a ;
+# internally this is turned into a semicolon
 # but using semicolon in a step assignment directly
 # results in two separate commands
 
@@ -129,6 +129,8 @@ $n=n72
 :1/r
 :2/r
 :3/r
+:4/r
+:5/r
 :6/r
 
 #~2000
