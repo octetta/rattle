@@ -177,6 +177,7 @@ func graph(a []int16) {
     ht = -ht
   }
   tx,ty := ansi.TermSize()
+  s.Clear()
   for i := 0; i < l; i+=2 {
     x0 := xlate(i, 0, l-1, 0, tx*2-2)
     y0 := xlate(int(a[i]), int(lo), int(hi), 0, ty/2)
@@ -186,7 +187,8 @@ func graph(a []int16) {
   fmt.Print(s)
   ansi.ResetAll()
   ansi.SetFg(ansi.Red)
-  fmt.Println(lo, hi, ht)
+  fmt.Printf("min:%d max:%d range:%d duration:%d\n", lo, hi, ht, 0)
+  s.Clear()
   for i := 1; i < l; i+=2 {
     x0 := xlate(i, 0, l-1, 0, tx*2-2)
     y0 := xlate(int(a[i]), int(lo), int(hi), 0, ty/2)
@@ -430,15 +432,12 @@ func _toker(tok string, now int) int {
     case tok[:1] == "@":
       // @ = amy example
       if len(tok) > 1 {
-        if tok == "@1" {
-          later("v0l0", 250)
-        } else if tok == "@2" {
-          later("v0l0", 500)
-        } else if tok == "@3" {
-          later("v0l0", 1000)
-        } else if tok == "@4" {
-          later("v0l0", 2000)
-        }
+          if tok[1:] == "g" {
+            C.rat_global_dump()
+          } else {
+            n,_ := strconv.Atoi(tok[1:])
+            C.rat_osc_dump(C.int(n))
+          }
       }
     case tok[:1] == "~":
       // ~ = pause

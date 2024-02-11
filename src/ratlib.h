@@ -1,6 +1,9 @@
 #ifndef _RATLIB_H_
 #define _RATLIB_H_
 
+void rat_global_dump(void);
+void rat_osc_dump(int i);
+void rat_debug(int d);
 void rat_device(int d);
 void rat_list(void);
 char *rat_scan(char *input);
