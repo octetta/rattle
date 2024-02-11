@@ -8,6 +8,11 @@
 
 #define SLEN (44100)
 
+void delay_ms(uint32_t ms) {
+    uint32_t start = amy_sysclock();
+    while(amy_sysclock() - start < ms) usleep(THREAD_USLEEP);
+}
+
 void rat_device(int d) {
     amy_device_id = d;
 }
@@ -17,7 +22,7 @@ void rat_list(void) {
 }
 
 void rat_example(int n) {
-#if 0
+#if 1
     switch (n) {
         case 0:
             example_reverb();
@@ -32,7 +37,7 @@ void rat_example(int n) {
             bleep(amy_sysclock());
             break;
         case 4:
-            example_fm(amy_sysclock());
+            //example_fm(amy_sysclock());
             break;
         case 5:
             example_multimbral_fm(amy_sysclock(), 10);
@@ -47,10 +52,10 @@ void rat_example(int n) {
             example_patches();
             break;
         case 9:
-            example_juno_chord();
+            //example_juno_chord();
             break;
         case 10:
-            example_dx7_chord();
+            //example_dx7_chord();
             break;
         case 11:
             example_voice_alloc();

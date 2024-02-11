@@ -65,6 +65,7 @@ lib/librat.a: src/ratlib.c src/ratlib.h \
 	ranlib lib/librat.a
 
 lib/libamy.a: \
+  src/my_logging.c \
 	amy/src/algorithms.c \
 	amy/src/amy.c \
 	amy/src/delay.c \
@@ -77,8 +78,9 @@ lib/libamy.a: \
 	amy/src/pcm.c \
   #
 	mkdir -p lib ; rm -f lib/libamy.a
+	gcc -c src/my_logging.c       -o lib/my_logging.o
 	gcc -c amy/src/algorithms.c   -o lib/algorithms.o
-	gcc -c amy/src/amy.c          -o lib/amy.o
+	gcc -I src -c amy/src/amy.c   -o lib/amy.o
 	gcc -c amy/src/delay.c        -o lib/delay.o
 	gcc -c amy/src/envelope.c     -o lib/envelope.o
 	gcc -c amy/src/examples.c     -o lib/examples.o
@@ -89,6 +91,7 @@ lib/libamy.a: \
 	gcc -c amy/src/partials.c     -o lib/partials.o
 	gcc -c amy/src/pcm.c          -o lib/pcm.o
 	ar -cvq lib/libamy.a \
+    lib/my_logging.o \
     lib/algorithms.o \
     lib/amy.o \
     lib/delay.o \

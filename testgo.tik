@@ -1,5 +1,9 @@
 # set up some oscillators
 
+# setup oscs 40,41,42,43 with juno patch 40 on voice 0
+
+# -r40,41,42,43K40
+
 # pulse
 v0w1f55
 
@@ -125,13 +129,13 @@ $n=n72
 # this sets the delay between steps (in milliseconds)
 :m=100
 
-:0/r
-:1/r
-:2/r
-:3/r
-:4/r
-:5/r
-:6/r
+# :0/r
+# :1/r
+# :2/r
+# :3/r
+# :4/r
+# :5/r
+# :6/r
 
 #~2000
 k1

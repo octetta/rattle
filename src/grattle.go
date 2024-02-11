@@ -43,21 +43,27 @@ func frames() int {
 }
 
 func framer(n int) {
+  if debug {
+    fmt.Println("=> framer", n)
+  }
   C.rat_framer(C.int(n))
 }
 
 var sample []int16
 
 func samples() []int16 {
-    sample = make([]int16, frames())
-    for i, _ := range sample {
-      sample[i] = int16(C.rat_frame_at(C.int(i)))
-    }
-    return sample
+  sample = make([]int16, frames())
+  for i, _ := range sample {
+    sample[i] = int16(C.rat_frame_at(C.int(i)))
+  }
+  return sample
 }
 
 func amy(line string) {
-    C.rat_send(C.CString(line))
+  if debug {
+    fmt.Println("=>", line)
+  }
+  C.rat_send(C.CString(line))
 }
 
 var re1 *regexp.Regexp
@@ -83,8 +89,10 @@ func process(line string, now int) {
       line = strings.Join(b, "")
     }
   }
-  snow := strconv.FormatInt(int64(now), 10)
+  //snow := strconv.FormatInt(int64(now), 10)
   switch {
+    case line[:1] == "-":
+      amy(line[1:])
     case line[:1] == "+":
       m1 := re3.FindStringSubmatch(line)
       if len(m1) > 0 {
@@ -93,37 +101,40 @@ func process(line string, now int) {
         //fmt.Println(m1[ms], m1[rest])
         if len(m1[rest]) > 0 {
           n,_ := strconv.Atoi(m1[ms])
-          s := fmt.Sprintf("t%d%s", n+now, m1[rest])
-          //fmt.Println("=> ", s)
-          amy(s)
+          later(m1[rest], n)
+          //s := fmt.Sprintf("t%d%s", n+now, m1[rest])
+          //fmt.Println("=>", s)
+          //amy(s)
         }
       }
     case line[:1] == "_":
       m1 := re4.FindStringSubmatch(line)
       if len(m1) > 0 {
-        //fmt.Println("m1 -> ", m1)
+        //fmt.Println("m1 ->", m1)
         top := re4.SubexpIndex("Top")
         bot := re4.SubexpIndex("Bot")
         rest := re4.SubexpIndex("Rest")
         if len(m1[rest]) > 0 {
-          //fmt.Println(" top -> ", m1[top])
-          //fmt.Println(" bot -> ", m1[bot])
-          //fmt.Println("rest -> ", m1[rest])
+          //fmt.Println(" top ->", m1[top])
+          //fmt.Println(" bot ->", m1[bot])
+          //fmt.Println("rest ->", m1[rest])
           i,_ := strconv.Atoi(m1[top])
           i--
           j,_ := strconv.Atoi(m1[bot])
           j--
-          s := fmt.Sprintf("t%d%s", meter[i][j]+now, m1[rest])
-          //fmt.Println("=> ", s)
-          amy(s)
+          //s := fmt.Sprintf("t%d%s", meter[i][j]+now, m1[rest])
+          //fmt.Println("=>", s)
+          //amy(s)
+          later(m1[rest], meter[i][j])
         }
       }
     case line[:1] == "t":
       amy(line)
     default:
-      out := "t" + snow + line
+      //out := "t" + snow + line
       //fmt.Println(out)
-      amy(out)
+      //amy(out)
+      amy(line)
   }
 }
 
@@ -217,9 +228,22 @@ func dump() {
 
 var interval int
 var latency int64
+var debug bool
+var dlevel int
 
 var done chan bool
 var metro chan int
+
+func later(cmd string, ms int) {
+  var t *time.Timer
+  f := func() {
+    //fmt.Println("--> #2", clk(), cmd)
+    amy(cmd)
+    t.Stop()
+  }
+  d := time.Duration(ms) * time.Millisecond
+  t = time.AfterFunc(d, f)
+}
 
 func runner() {
   l := time.Now()
@@ -269,9 +293,6 @@ func runner() {
 func toker(tok string, now int) int {
   all := strings.Split(tok, ";")
   var r = 0
-  if len(all) > 1 {
-    fmt.Println(all)
-  }
   for _, v := range all {
     r = _toker(v, now)
   }
@@ -291,6 +312,17 @@ func _toker(tok string, now int) int {
       // : = system settings
       if len(tok) > 1 {
         switch {
+          case tok == ":d=0":
+            debug = false
+          case tok == ":d=1":
+            debug = true
+            dlevel = 1
+          case tok == ":d=2":
+            debug = true
+            dlevel = 2
+          case tok == ":d=3":
+            debug = true
+            dlevel = 3
           case tok[:2] == ":q":
             return -1
           case tok[:2] == ":b":
@@ -398,8 +430,15 @@ func _toker(tok string, now int) int {
     case tok[:1] == "@":
       // @ = amy example
       if len(tok) > 1 {
-        ex, _ := strconv.ParseInt(tok[1:], 10, 32)
-        C.rat_example(C.int(ex))
+        if tok == "@1" {
+          later("v0l0", 250)
+        } else if tok == "@2" {
+          later("v0l0", 500)
+        } else if tok == "@3" {
+          later("v0l0", 1000)
+        } else if tok == "@4" {
+          later("v0l0", 2000)
+        }
       }
     case tok[:1] == "~":
       // ~ = pause
@@ -413,7 +452,7 @@ func _toker(tok string, now int) int {
       // < = capture frames
       if len(tok) > 1 {
         ms, _ := strconv.ParseInt(tok[1:], 10, 32)
-        n := (ms * 44100) / 1000
+        n := (ms * 44100) / 1000 * 2
         framer(int(n))
       } else {
         framer(44100 * 2)
@@ -443,7 +482,8 @@ func _toker(tok string, now int) int {
         fmt.Println("$ ???")
       }
     case matcher("[a-zA-Z]*", tok):
-      //amy(tok)
+      process(tok, clk())
+    case tok[:1] == "-":
       process(tok, clk())
     case tok[:1] == "+":
       process(tok, clk())
@@ -521,6 +561,9 @@ func main() {
   
   list := false
   getopt.Flag(&list, 'l', "list output devices")
+
+  debug = false
+  getopt.Flag(&debug, 'D', "enable debug messages")
   
   device := 0
   getopt.FlagLong(&device, "device", 'd', "device for output")
@@ -557,16 +600,16 @@ func main() {
   re3 = regexp.MustCompile(`\+(?P<Ms>\d+)(?P<Rest>.*)`)
   re4 = regexp.MustCompile(`_(?P<Top>\d)(?P<Bot>\d)(?P<Rest>.*)`)
 
-	cache,_ := os.UserCacheDir()
-	fmt.Println(string(cache))
+	//cache,_ := os.UserCacheDir()
+	//fmt.Println(string(cache))
   
 	//sampleout := filepath.Join(cache, "sample.txt")
 
 	//config := os.UserConfigDir()
 	//fmt.Println(config)
 
-	text,_ := folder.ReadFile("folder/sample.txt")
-	fmt.Println(string(text))
+	//text,_ := folder.ReadFile("folder/sample.txt")
+	//fmt.Println(string(text))
 
   C.rat_device(C.int(device))
 
@@ -580,7 +623,7 @@ func main() {
   if usefile != "" {
     file, err := os.Open(usefile)
     if err != nil {
-      fmt.Println("can not open ", usefile)
+      fmt.Println("can not open", usefile)
     } else {
       scanner := bufio.NewScanner(file)
       now := clk()
@@ -612,6 +655,9 @@ func main() {
       }
     } else if err == io.EOF {
       break
+    }
+    if debug {
+      fmt.Println("# clk", clk())
     }
     line = strings.TrimSpace(line)
     if len(line) == 0 {
