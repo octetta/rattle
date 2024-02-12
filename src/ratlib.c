@@ -21,7 +21,7 @@ void rat_global_dump(void) {
     printf("global: volume %f eq: %f %f %f \n", amy_global.volume, S2F(amy_global.eq[0]), S2F(amy_global.eq[1]), S2F(amy_global.eq[2]));
 }
 
-void rat_osc_dump(int i) {
+void rat_osc_dump_one(int i) {
     printf("osc %d: status %d wave %d mod_target %d mod_source %d velocity %flogratio %f feedback %f resonance %f step %f chained %d algo %d source %d,%d,%d,%d,%d,%d  \n",
             i, synth[i].status, synth[i].wave, synth[i].mod_target, synth[i].mod_source,
             synth[i].velocity, synth[i].logratio, synth[i].feedback, synth[i].resonance, P2F(synth[i].step), synth[i].chained_osc, 
@@ -32,7 +32,6 @@ void rat_osc_dump(int i) {
     printf("  flf_coefs: %.3f %.3f %.3f %.3f %.3f %.3f\n", synth[i].filter_logfreq_coefs[0], synth[i].filter_logfreq_coefs[1], synth[i].filter_logfreq_coefs[2], synth[i].filter_logfreq_coefs[3], synth[i].filter_logfreq_coefs[4], synth[i].filter_logfreq_coefs[5]);
     printf("  dut_coefs: %.3f %.3f %.3f %.3f %.3f %.3f\n", synth[i].duty_coefs[0], synth[i].duty_coefs[1], synth[i].duty_coefs[2], synth[i].duty_coefs[3], synth[i].duty_coefs[4], synth[i].duty_coefs[5]);
     fprintf(stderr, "  pan_coefs: %.3f %.3f %.3f %.3f %.3f %.3f\n", synth[i].pan_coefs[0], synth[i].pan_coefs[1], synth[i].pan_coefs[2], synth[i].pan_coefs[3], synth[i].pan_coefs[4], synth[i].pan_coefs[5]);
-    //if(type>3) {
     {
         for(uint8_t j=0;j<MAX_BREAKPOINT_SETS;j++) {
             printf("  bp%d (target %d): ", j, synth[i].breakpoint_target[j]);
@@ -42,6 +41,58 @@ void rat_osc_dump(int i) {
             printf("\n");
         }
         printf("mod osc %d: amp: %f, logfreq %f duty %f filter_logfreq %f resonance %f fb/bw %f pan %f \n", i, msynth[i].amp, msynth[i].logfreq, msynth[i].duty, msynth[i].filter_logfreq, msynth[i].resonance, msynth[i].feedback, msynth[i].pan);
+    }
+}
+
+void rat_osc_dump(int i) {
+    rat_osc_dump_one(i);
+    int n = synth[i].chained_osc;
+    if (n != 65535) {
+        rat_osc_dump(n);
+    }
+}
+
+#define MAX_VOICES 16 // ripped from patches.c
+extern uint8_t osc_to_voice[AMY_OSCS];
+extern uint16_t voice_to_base_osc[MAX_VOICES];
+
+void rat_v2r(void) {
+    printf("v2r => ");
+    for (int i=0; i<AMY_OSCS; i++) {
+        int x = osc_to_voice[i];
+        if (x != 255) printf("v%d:r%d ", i, x);
+    }
+    puts("");
+}
+
+void rat_r2v(void) {
+    printf("r2v => ");
+    for (int i=0; i<MAX_VOICES; i++) {
+        int x = voice_to_base_osc[i];
+        if (x != 65535) printf("r%d:v%d ", i, x);
+    }
+    puts("");
+}
+
+void rat_osc_multi(int f) {
+    if (f == 0) {
+        printf("off => ");
+        for (int i=0; i<AMY_OSCS; i++) {
+            if (synth[i].status == OFF) {
+                //rat_osc_dump(i);
+                printf("%d ", i);
+            }
+        }
+        puts("");
+    } else if (f == 1) {
+        printf(" on => ");
+        for (int i=0; i<AMY_OSCS; i++) {
+            if (synth[i].status != OFF) {
+                //rat_osc_dump(i);
+                printf("%d ", i);
+            }
+        }
+        puts("");
     }
 }
 

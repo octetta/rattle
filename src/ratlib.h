@@ -1,6 +1,9 @@
 #ifndef _RATLIB_H_
 #define _RATLIB_H_
 
+void rat_v2r(void);
+void rat_r2v(void);
+void rat_osc_multi(int f);
 void rat_global_dump(void);
 void rat_osc_dump(int i);
 void rat_debug(int d);

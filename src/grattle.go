@@ -89,7 +89,7 @@ func process(line string, now int) {
       line = strings.Join(b, "")
     }
   }
-  //snow := strconv.FormatInt(int64(now), 10)
+  snow := strconv.FormatInt(int64(now), 10)
   switch {
     case line[:1] == "-":
       amy(line[1:])
@@ -98,42 +98,34 @@ func process(line string, now int) {
       if len(m1) > 0 {
         ms := re3.SubexpIndex("Ms")
         rest := re3.SubexpIndex("Rest")
-        //fmt.Println(m1[ms], m1[rest])
         if len(m1[rest]) > 0 {
           n,_ := strconv.Atoi(m1[ms])
-          later(m1[rest], n)
-          //s := fmt.Sprintf("t%d%s", n+now, m1[rest])
-          //fmt.Println("=>", s)
-          //amy(s)
+          //later(m1[rest], n)
+          s := fmt.Sprintf("t%d%s", n+now, m1[rest])
+          amy(s)
         }
       }
     case line[:1] == "_":
       m1 := re4.FindStringSubmatch(line)
       if len(m1) > 0 {
-        //fmt.Println("m1 ->", m1)
         top := re4.SubexpIndex("Top")
         bot := re4.SubexpIndex("Bot")
         rest := re4.SubexpIndex("Rest")
         if len(m1[rest]) > 0 {
-          //fmt.Println(" top ->", m1[top])
-          //fmt.Println(" bot ->", m1[bot])
-          //fmt.Println("rest ->", m1[rest])
           i,_ := strconv.Atoi(m1[top])
           i--
           j,_ := strconv.Atoi(m1[bot])
           j--
-          //s := fmt.Sprintf("t%d%s", meter[i][j]+now, m1[rest])
-          //fmt.Println("=>", s)
-          //amy(s)
-          later(m1[rest], meter[i][j])
+          //later(m1[rest], meter[i][j])
+          s := fmt.Sprintf("t%d%s", now+meter[i][j], m1[rest])
+          amy(s)
         }
       }
     case line[:1] == "t":
-      amy(line)
+      //amy(line)
+      out := "t" + snow + line
+      amy(out)
     default:
-      //out := "t" + snow + line
-      //fmt.Println(out)
-      //amy(out)
       amy(line)
   }
 }
@@ -211,7 +203,7 @@ func _dump(n int, all bool) {
   if c == 0 {
     return
   }
-  fmt.Printf("# %d len:%d ptr:%d run:%d mod:%d\n", n, c, ptr[n], run[n], mod[n])
+  fmt.Printf("# %d len:%d ptr:%d run:%d +%d mod:%d\n", n, c, ptr[n], run[n], mark[n], mod[n])
   if all {
   for i:=0; i<len(one); i++ {
     if len(one[i]) == 0 {
@@ -276,7 +268,6 @@ func runner() {
               p = 0
             }
             if len(pat[i][p]) > 0 {
-              //process(pat[i][p], c)
               toker(pat[i][p], c)
               ptr[i] = p+1
             } else {
@@ -375,11 +366,22 @@ func _toker(tok string, now int) int {
             n := int(tok[1]-48)
             arg := tok[3:]
             b := strings.SplitN(arg, "=", 2)
-            m, _ := strconv.ParseInt(b[0], 10, 32)
-            if m >= 0 && m < int64(len(pat[n])) {
-              //pat[n][m] = b[1]
+            //fmt.Println("b =>", b)
+            if b[0] == "+" {
+              m := mark[n]
               s := strings.ReplaceAll(b[1], "&", ";")
+              //fmt.Println("ADD @", m, b[1])
               pat[n][m] = s
+              mark[n] = m+1
+            } else {
+              m, _ := strconv.ParseInt(b[0], 10, 32)
+              if m >= 0 && m < int64(len(pat[n])) {
+                //pat[n][m] = b[1]
+                s := strings.ReplaceAll(b[1], "&", ";")
+                pat[n][m] = s
+                mark[n] = int(m)+1
+                //fmt.Println("MANUAL @", m, s)
+              }
             }
           case re2.MatchString(tok):
             // %4=5
@@ -434,6 +436,14 @@ func _toker(tok string, now int) int {
       if len(tok) > 1 {
           if tok[1:] == "g" {
             C.rat_global_dump()
+          } else if tok[1:] == "a" {
+            C.rat_osc_multi(C.int(1))
+          } else if tok[1:] == "f" {
+            C.rat_osc_multi(C.int(0))
+          } else if tok[1:] == "r" {
+            C.rat_r2v()
+          } else if tok[1:] == "v" {
+            C.rat_v2r()
           } else {
             n,_ := strconv.Atoi(tok[1:])
             C.rat_osc_dump(C.int(n))
@@ -482,8 +492,6 @@ func _toker(tok string, now int) int {
       }
     case matcher("[a-zA-Z]*", tok):
       process(tok, clk())
-    case tok[:1] == "-":
-      process(tok, clk())
     case tok[:1] == "+":
       process(tok, clk())
     case tok[:1] == "_":
@@ -525,6 +533,8 @@ var pat [][]string
 var ptr []int
 var mod []int
 var run []int
+var mark []int
+
 var usr []string
 var key []string
 var meter [][]int
@@ -539,10 +549,12 @@ func main() {
   ptr = make([]int, 10)
   mod = make([]int, 10)
   run = make([]int, 10)
+  mark = make([]int, 10)
   for i:=0; i<len(ptr); i++ {
     ptr[i] = 0
     run[i] = 0
     mod[i] = 4
+    mark[i] = 0
     pat[i] = make([]string, PLEN)
     for j:=0; j<len(pat[i]); j++ {
       pat[i][j] = ""
