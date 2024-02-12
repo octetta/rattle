@@ -179,7 +179,8 @@ func graph(a []int16) {
   fmt.Print(s)
   ansi.ResetAll()
   ansi.SetFg(ansi.Red)
-  fmt.Printf("min:%d max:%d range:%d duration:%d\n", lo, hi, ht, 0)
+  fmt.Printf("min:%d max:%d range:%d duration:%fms\n", lo, hi, ht,
+    float64(frames()) / 2.0 / 44.1)
   s.Clear()
   for i := 1; i < l; i+=2 {
     x0 := xlate(i, 0, l-1, 0, tx*2-2)
