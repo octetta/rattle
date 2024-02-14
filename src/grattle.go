@@ -7,6 +7,7 @@ import "C"
 
 import (
   "bufio"
+  //"bytes"
   "embed"
   "fmt"
   "github.com/bit101/go-ansi"
@@ -15,6 +16,7 @@ import (
   "github.com/kerrigan29a/drawille-go"
   "io"
   //"math"
+  "net"
   "os"
   "path/filepath"
   //"reflect"
@@ -23,6 +25,31 @@ import (
   "strings"
   "time"
 )
+
+func udper(port int) {
+  l := fmt.Sprintf("0.0.0.0:%d", port)
+  addr,err := net.ResolveUDPAddr("udp", l)
+  if err != nil {
+    fmt.Println(err)
+    return
+  }
+  con,err := net.ListenUDP("udp", addr)
+  if err != nil {
+    fmt.Println(err)
+    return
+  }
+  for {
+    var buf [512]byte
+    //n,addr,err := con.ReadFromUDP(buf[0:])
+    n,_,err := con.ReadFromUDP(buf[0:])
+    if err != nil {
+      fmt.Println(err)
+    } else {
+      s := strings.TrimSpace(string(buf[0:n-1]))
+      toker(s, clk())
+    }
+  }
+}
 
 func matcher(p string, s string) bool {
   f,_ := filepath.Match(p, s)
@@ -89,7 +116,6 @@ func process(line string, now int) {
       line = strings.Join(b, "")
     }
   }
-  snow := strconv.FormatInt(int64(now), 10)
   switch {
     case line[:1] == "-":
       amy(line[1:])
@@ -122,11 +148,10 @@ func process(line string, now int) {
         }
       }
     case line[:1] == "t":
-      //amy(line)
-      out := "t" + snow + line
-      amy(out)
-    default:
       amy(line)
+    default:
+      s := fmt.Sprintf("t%d%s", now, line)
+      amy(s)
   }
 }
 
@@ -225,6 +250,7 @@ var interval int
 var latency int64
 var debug bool
 var dlevel int
+var port int
 
 var done chan bool
 var metro chan int
@@ -292,6 +318,35 @@ func toker(tok string, now int) int {
   }
   // return the last value in the sequence
   return r
+}
+
+func help(n int) {
+  fmt.Println("### AMY wire protocol")
+  fmt.Println("a amp without retrigger [0,1.0)         | A bp0 time,ratio,...up-to-8-pairs...")
+  fmt.Println("b algo feedback [0,1.0]                 | B bp1")
+  fmt.Println("c chained osc                           | C clone osc")
+  fmt.Println("d duty cycle of pulse [0.01,0.99]       | D debug")
+  fmt.Println("f frequency of osc                      | F center freq for filter")
+  fmt.Println("g modulation tarGet                     | G filter 0=none 1=LPF 2=BPF 3=HP")
+  fmt.Println("  1=amp         2=duty  4=freq          | I ratio (see AMY webpage)")
+  fmt.Println("  8=filter-freq 16=rez  32=feedback     | L mod source osc / LFO")
+  fmt.Println("l velocity/trigger >0.0 or note-off =0  | N latency in ms")
+  fmt.Println("n midi note number                      | O oscs algo 6 comma-sep, -1=none")
+  fmt.Println("o DX7 algorithm [1,32]                  | P phase [0,1.0] where osc cycle ")
+  fmt.Println("p patch                                 | R rez q filter [0,10.0], defaultstarts")
+  fmt.Println("t timestamp in ms for event             | S reset oscs")
+  fmt.Println("v osc selector [0,63]                   | T bp0 (A) target")
+  fmt.Println("w wave type                             | W bp1 (B) target")
+  fmt.Println("  0=sine 1=pulse  2=saw-dn 3=saw-up     | X bp2 (c) target")
+  fmt.Println("  4=tri  5=noise  6=ks     7=pcm        | V volume knob for everything")
+  fmt.Println("  8=algo 9=part  10=parts 11=off        |")
+  fmt.Println("x eq_l in dB f[center]=800Hz [-15.0,15.0] 0=off")
+  fmt.Println("y eq_m in dB f[center]=2500Hz      \"")
+  fmt.Println("z eq_h in dB f[center]=7500Hz      \"")
+  fmt.Println("(chorus) k level [0-1.0)    | m delay [1-512]")
+  fmt.Println("(reverb) H liveness [0-1.0] | h level [0.0-inf)")
+  fmt.Println("(reverb) j decay [0-1.0]    | J crossover Hz (3000)")
+
 }
 
 func _toker(tok string, now int) int {
@@ -421,6 +476,8 @@ func _toker(tok string, now int) int {
           fmt.Println("% i do not understand")
         }
       }
+    case tok == "?":
+      help(0)
     case tok == "?p":
       graph(samples())
     case tok == "?i":
@@ -493,6 +550,8 @@ func _toker(tok string, now int) int {
       }
     case matcher("[a-zA-Z]*", tok):
       process(tok, clk())
+    case tok[:1] == "-":
+      amy(tok[1:])
     case tok[:1] == "+":
       process(tok, clk())
     case tok[:1] == "_":
@@ -574,6 +633,9 @@ func main() {
   list := false
   getopt.Flag(&list, 'l', "list output devices")
 
+  port = 8405
+  getopt.FlagLong(&port, "port", 'u', "port for UDP listner")
+
   debug = false
   getopt.Flag(&debug, 'D', "enable debug messages")
   
@@ -630,7 +692,11 @@ func main() {
   done = make(chan bool)
   metro = make(chan int)
 
+  amy("N1"); // this might fix the weird latency stuff?
+
   go runner()
+
+  go udper(port)
 
   if usefile != "" {
     file, err := os.Open(usefile)
@@ -640,8 +706,8 @@ func main() {
       scanner := bufio.NewScanner(file)
       now := clk()
       for scanner.Scan() {
-        toker(scanner.Text(), now)
         //fmt.Println(scanner.Text())
+        toker(scanner.Text(), now)
       }
       file.Close()
     }

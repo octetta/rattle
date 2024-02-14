@@ -22,17 +22,64 @@ void rat_global_dump(void) {
 }
 
 void rat_osc_dump_one(int i) {
-    printf("osc %d: status %d wave %d mod_target %d mod_source %d velocity %flogratio %f feedback %f resonance %f step %f chained %d algo %d source %d,%d,%d,%d,%d,%d  \n",
-            i, synth[i].status, synth[i].wave, synth[i].mod_target, synth[i].mod_source,
-            synth[i].velocity, synth[i].logratio, synth[i].feedback, synth[i].resonance, P2F(synth[i].step), synth[i].chained_osc, 
-            synth[i].algorithm, 
-            synth[i].algo_source[0], synth[i].algo_source[1], synth[i].algo_source[2], synth[i].algo_source[3], synth[i].algo_source[4], synth[i].algo_source[5] );
-    printf("  amp_coefs: %.3f %.3f %.3f %.3f %.3f %.3f\n", synth[i].amp_coefs[0], synth[i].amp_coefs[1], synth[i].amp_coefs[2], synth[i].amp_coefs[3], synth[i].amp_coefs[4], synth[i].amp_coefs[5]);
-    printf("  lfr_coefs: %.3f %.3f %.3f %.3f %.3f %.3f\n", synth[i].logfreq_coefs[0], synth[i].logfreq_coefs[1], synth[i].logfreq_coefs[2], synth[i].logfreq_coefs[3], synth[i].logfreq_coefs[4], synth[i].logfreq_coefs[5]);
-    printf("  flf_coefs: %.3f %.3f %.3f %.3f %.3f %.3f\n", synth[i].filter_logfreq_coefs[0], synth[i].filter_logfreq_coefs[1], synth[i].filter_logfreq_coefs[2], synth[i].filter_logfreq_coefs[3], synth[i].filter_logfreq_coefs[4], synth[i].filter_logfreq_coefs[5]);
-    printf("  dut_coefs: %.3f %.3f %.3f %.3f %.3f %.3f\n", synth[i].duty_coefs[0], synth[i].duty_coefs[1], synth[i].duty_coefs[2], synth[i].duty_coefs[3], synth[i].duty_coefs[4], synth[i].duty_coefs[5]);
-    fprintf(stderr, "  pan_coefs: %.3f %.3f %.3f %.3f %.3f %.3f\n", synth[i].pan_coefs[0], synth[i].pan_coefs[1], synth[i].pan_coefs[2], synth[i].pan_coefs[3], synth[i].pan_coefs[4], synth[i].pan_coefs[5]);
-    {
+    //printf("osc %d: status %d wave %d mod_target %d mod_source %d velocity %flogratio %f feedback %f resonance %f step %f chained %d algo %d source %d,%d,%d,%d,%d,%d  \n",
+    //        i, synth[i].status, synth[i].wave, synth[i].mod_target, synth[i].mod_source,
+    //        synth[i].velocity, synth[i].logratio, synth[i].feedback, synth[i].resonance, P2F(synth[i].step), synth[i].chained_osc, 
+    //        synth[i].algorithm, 
+    //        synth[i].algo_source[0], synth[i].algo_source[1], synth[i].algo_source[2], synth[i].algo_source[3], synth[i].algo_source[4], synth[i].algo_source[5] );
+    printf("v%d", i);
+    printf("w%d", synth[i].wave);
+    if (synth[i].mod_target) printf("g%d", synth[i].mod_target);
+    if (synth[i].mod_source != 65535) printf("L%d", synth[i].mod_source);
+    printf("l%g", synth[i].velocity);
+    if (synth[i].feedback) printf("b%g", synth[i].feedback);
+    printf("R%g", synth[i].resonance);
+    if (synth[i].chained_osc != 65535) printf("c%d", synth[i].chained_osc);
+    if (synth[i].algorithm != 0) printf("o%d", synth[i].algorithm);
+    if (synth[i].algo_source[0] != 32767) printf("O%d", synth[i].algo_source[0]);
+    if (synth[i].algo_source[1] != 32767) printf(",%d", synth[i].algo_source[1]);
+    if (synth[i].algo_source[2] != 32767) printf(",%d", synth[i].algo_source[2]);
+    if (synth[i].algo_source[3] != 32767) printf(",%d", synth[i].algo_source[3]);
+    if (synth[i].algo_source[4] != 32767) printf(",%d", synth[i].algo_source[4]);
+    if (synth[i].algo_source[5] != 32767) printf(",%d", synth[i].algo_source[5]);
+    for(uint8_t j=0;j<MAX_BREAKPOINT_SETS;j++) {
+        char a = 'T';
+        char b = 'A';
+        if (j == 1) {
+            a = 'W';
+            b = 'B';
+        }
+        if (synth[i].breakpoint_target[j]) {
+            printf("%c%d", a, synth[i].breakpoint_target[j]);
+            for(uint8_t k=0;k<MAX_BREAKPOINTS;k++) {
+                if (k == 0) printf("%c", b);
+                if (synth[i].breakpoint_times[j][k] == -1) {
+                    break;
+                } else {
+                    if (k > 0) printf(",");
+                    printf("%d,%g", synth[i].breakpoint_times[j][k], synth[i].breakpoint_values[j][k]);
+                }
+            }
+        }
+    }
+    puts("");
+
+    printf("mod osc %d a%g f%g d%g F%g R%g b%g Q%g \n",
+        i,
+        msynth[i].amp,
+        msynth[i].logfreq,
+        msynth[i].duty,
+        msynth[i].filter_logfreq,
+        msynth[i].resonance,
+        msynth[i].feedback,
+        msynth[i].pan);
+    
+    printf("a%g,%g,%g,%g,%g,%g\n", synth[i].amp_coefs[0], synth[i].amp_coefs[1], synth[i].amp_coefs[2], synth[i].amp_coefs[3], synth[i].amp_coefs[4], synth[i].amp_coefs[5]);
+    printf("f%g,%g,%g,%g,%g,%g\n", synth[i].logfreq_coefs[0], synth[i].logfreq_coefs[1], synth[i].logfreq_coefs[2], synth[i].logfreq_coefs[3], synth[i].logfreq_coefs[4], synth[i].logfreq_coefs[5]);
+    printf("F%g,%g,%g,%g,%g,%g\n", synth[i].filter_logfreq_coefs[0], synth[i].filter_logfreq_coefs[1], synth[i].filter_logfreq_coefs[2], synth[i].filter_logfreq_coefs[3], synth[i].filter_logfreq_coefs[4], synth[i].filter_logfreq_coefs[5]);
+    printf("d%g,%g,%g,%g,%g,%g\n", synth[i].duty_coefs[0], synth[i].duty_coefs[1], synth[i].duty_coefs[2], synth[i].duty_coefs[3], synth[i].duty_coefs[4], synth[i].duty_coefs[5]);
+    printf("Q%g,%g,%g,%g,%g,%g\n", synth[i].pan_coefs[0], synth[i].pan_coefs[1], synth[i].pan_coefs[2], synth[i].pan_coefs[3], synth[i].pan_coefs[4], synth[i].pan_coefs[5]);
+    if (0) {
         for(uint8_t j=0;j<MAX_BREAKPOINT_SETS;j++) {
             printf("  bp%d (target %d): ", j, synth[i].breakpoint_target[j]);
             for(uint8_t k=0;k<MAX_BREAKPOINTS;k++) {
@@ -49,6 +96,15 @@ void rat_osc_dump(int i) {
     int n = synth[i].chained_osc;
     if (n != 65535) {
         rat_osc_dump(n);
+    }
+    int l[6];
+    for (int j=0; j<6; j++) {
+        l[j] = -1;
+    }
+    for (int j=0; j<6; j++) {
+        int o = synth[i].algo_source[j];
+        if (o != 32767) rat_osc_dump(o);
+        else break;
     }
 }
 
@@ -197,7 +253,11 @@ char *rat_scan(char *input) {
     return trimmed;
 }
 
+extern unsigned char computed_delta_set;
+
 void rat_start(void) {
+    //amy_restart();
+    //computed_delta_set = 0;
     amy_start(/* cores= */ 1, /* reverb= */ 1, /* chorus= */ 1);
     amy_live_start();
     amy_reset_oscs();

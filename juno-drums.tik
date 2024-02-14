@@ -1,25 +1,28 @@
+-N1
+
 # pcm 808-snare
 #v21w7p2
 # snare? => Juno K43 == A64 Snare Drum
-r0K43n45
+-r0K43n45
 
 # pcm 808-kick
 # v20w7p1
 # kick? => Juno K44 == A65 Tom Toms
-r1K44n50
+-r1K44n50
 
 # pcm 808-closed-cymbal
 #v30w7p6
 # cymbal? => Juno K46 == A67 Shaker
-r2K46n60
+-r2K46n60
 
 $c=5
 $d=5
 $e=.25
 
 %0=4
-#:0/0=r1l$c&_14r1l0
 :0/0=r1l$c&_14r1l1&_34r1l.5&_44r1l0
+:0/+=r0l$d&_13r0l1
+:0/+=r1l$c&_14r1l0
 :0/+=r0l$d&_13r0l1
 :0/+=/
 
@@ -27,7 +30,7 @@ $e=.25
 :1/0=r2l$e
 :1/+=/
 
-r3K48
+-r3K48
 
 $f=48
 $g=50
@@ -46,7 +49,7 @@ $g=50
 :3/+=$f=58&$g=52
 :3/+=/
 
-r4K57n75
+-r4K57n75
 
 $h=10
 
