@@ -1,6 +1,6 @@
 # rattle - a REPL and audio playground
 
-Based on AMY https://github.com/bwhitman/amy
+Based on AMY https://github.com/bwhitman/amy with my miniaudio patches and my "amy-message" example I hacked for that project.
 
 ## Build
 
