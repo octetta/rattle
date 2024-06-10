@@ -204,7 +204,7 @@ func graph(a []int16) {
   fmt.Print(s)
   ansi.ResetAll()
   ansi.SetFg(ansi.Red)
-  fmt.Printf("min:%d max:%d range:%d duration:%fms\n", lo, hi, ht,
+  fmt.Printf("min:%d max:%d range:%d duration:%gms\n", lo, hi, ht,
     float64(frames()) / 2.0 / 44.1)
   s.Clear()
   for i := 1; i < l; i+=2 {
@@ -380,6 +380,8 @@ func _toker(tok string, now int) int {
             ansi.ClearScreen()
           case tok[:2] == ":r":
             fmt.Println(int(C.rat_sample_rate()))
+          case tok[:2] == ":s":
+            C.rat_see()
           case tok[:2] == ":o":
             fmt.Println(int(C.rat_oscs()))
           case tok[:2] == ":m":
@@ -514,6 +516,18 @@ func _toker(tok string, now int) int {
         time.Sleep(time.Duration(ms) * time.Millisecond)
       } else {
         time.Sleep(time.Duration(interval) * time.Millisecond)
+      }
+    case tok[:1] == ">":
+      if len(tok) > 1 {
+        n := len(tok)
+        if tok[n-1:n] == "<" {
+          p, _ := strconv.ParseInt(tok[1:n-1], 10, 32)
+          fmt.Println(">", p, "<")
+          C.rat_patch_from_framer(C.int(p))
+        } else {
+          p, _ := strconv.ParseInt(tok[1:], 10, 32)
+          C.rat_patch_show(C.int(p))
+        }
       }
     case tok[:1] == "<":
       // < = capture frames

@@ -1,3 +1,6 @@
+#include <time.h>
+#include <unistd.h>
+
 // libminiaudio-audio.c
 // functions for running AMY on a computer
 #if !defined(ESP_PLATFORM) && !defined(PICO_ON_DEVICE) && !defined(ARDUINO)
@@ -103,12 +106,87 @@ void capture(unsigned int n) {
     }
 }
 
+unsigned int cb_count = 0;
+char mark_zero_flag = -1;
+unsigned int mark_zero_cb = 0;
+unsigned int mark_zero_len = 0;
+uint64_t basesec = 0;
+
+typedef struct {
+    unsigned int cb_frame_count;
+    uint64_t cbc;
+    struct timespec t0;
+    uint64_t mptr;
+} mark_t;
+
+#define MLEN 8
+#define MMSK (MLEN-1)
+mark_t marks[MLEN];
+uint64_t mptr = 0;
+
+void see_marker(void) {
+    printf("cb_count = %d\n", cb_count);
+    //printf("mark_zero_flag = %d\n", mark_zero_flag);
+    printf("mark_zero_cb = %d\n", mark_zero_cb);
+    printf("mark_zero_len = %d\n", mark_zero_len);
+    char indicator = ' ';
+    for (int i=0; i<MLEN; i++) {
+        if (i == (mptr&MMSK)) {
+            indicator = '*';
+        } else {
+            indicator = ' ';
+        }
+        printf("[%d] %d . %09d @ %d (%d) #%d %c\n",
+        i,
+        marks[i].t0.tv_sec - basesec,
+        marks[i].t0.tv_nsec,
+        marks[i].cbc,
+        marks[i].cb_frame_count,
+        marks[i].mptr,
+        indicator);
+    }
+}
+
+//#define CT CLOCK_PROCESS_CPUTIME_ID
+#define CT CLOCK_REALTIME
+
+#define MARKER \
+    if (n == 0) { \
+        if (mark_zero_flag == 0) { \
+            marks[mptr&MMSK].mptr = mptr; \
+            clock_gettime(CT, &marks[mptr&MMSK].t0); \
+            marks[mptr&MMSK].cbc = cb_count; \
+            marks[mptr&MMSK].cb_frame_count = cb_frame_count; \
+            mark_zero_flag = 1; \
+            mark_zero_cb = cb_count; \
+            mark_zero_len = 1; \
+            mptr++; \
+        } else { \
+            mark_zero_len++; \
+        } \
+    } else { \
+        mark_zero_flag = 0; \
+    }
+
 static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput, ma_uint32 frame_count) {
     // Different audio devices on mac have wildly different frame_count_maxes, so we have to be ok with 
     // an audio buffer that is not an even multiple of BLOCK_SIZE. my iMac's speakers were always 512 frames, but
     // external headphones on a MBP is 432 or 431, and airpods were something like 1440.
 
     //printf("AMY_BLOCK_SIZE:%d frame_count:%d leftover_samples:%d\n", AMY_BLOCK_SIZE, frame_count, leftover_samples);
+
+    if (mark_zero_flag < 0) {
+        struct timespec t0;
+        clock_gettime(CT, &t0);
+        basesec = t0.tv_sec;
+        for (int i=0; i<MLEN; i++) {
+            marks[i].mptr = mptr;
+            marks[i].cbc = 0;
+            marks[i].t0.tv_sec = basesec;
+            marks[i].t0.tv_nsec = 0;
+        }
+        mark_zero_flag = 0;
+    }
 
     cb_frame_count = frame_count;
 
@@ -120,6 +198,7 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
     for(uint16_t frame=0;frame<leftover_samples;frame++) {
         for(uint8_t c=0;c<pDevice->playback.channels;c++) {
             unsigned int n = leftover_buf[AMY_NCHANS * frame + c];
+            MARKER
             poke[ptr++] = n;
             capture(n);
         }
@@ -134,6 +213,7 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
         for(uint16_t frame=0;frame<AMY_BLOCK_SIZE;frame++) {
             for(uint8_t c=0;c<pDevice->playback.channels;c++) {
                 unsigned int n = buf[AMY_NCHANS * frame + c];
+                MARKER
                 poke[ptr++] = n;
                 capture(n);
             }
@@ -147,6 +227,7 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
         for(uint16_t frame=0;frame<still_need;frame++) {
             for(uint8_t c=0;c<pDevice->playback.channels;c++) {
                 unsigned int n = buf[AMY_NCHANS * frame + c];
+                MARKER
                 poke[ptr++] = n;
                 capture(n);
             }
@@ -154,6 +235,8 @@ static void data_callback(ma_device* pDevice, void* pOutput, const void* pInput,
         memcpy(leftover_buf, buf+(still_need*AMY_NCHANS), (AMY_BLOCK_SIZE - still_need)*2*AMY_NCHANS);
         leftover_samples = AMY_BLOCK_SIZE - still_need;
     }
+
+    cb_count += frame_count;
 }
 
 ma_device_config deviceConfig;
@@ -196,6 +279,9 @@ amy_err_t miniaudio_init() {
     deviceConfig.sampleRate        = AMY_SAMPLE_RATE;
     deviceConfig.dataCallback      = data_callback;
     deviceConfig.pUserData         = _custom;
+
+    deviceConfig.periodSizeInFrames = 512;
+    //deviceConfig.periods = 8;
     
     if (ma_device_init(&context, &deviceConfig, &device) != MA_SUCCESS) {
         printf("Failed to open playback device.\n");

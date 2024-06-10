@@ -17,4 +17,5 @@ void amy_live_stop();
 void capture_start(short int *buf, unsigned int frames, short *channels);
 unsigned int captured_frames(void);
 void capture_stop(void);
+void see_marker(void);
 #endif

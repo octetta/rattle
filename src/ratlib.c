@@ -13,8 +13,25 @@ void delay_ms(uint32_t ms) {
     while(amy_sysclock() - start < ms) usleep(THREAD_USLEEP);
 }
 
+
+void rat_patch_show(int n) {
+    printf("[%d] off:%d len:%d lstart:%d lend:%d midi:%d rate:%d sample:%x\n",
+        n,
+        pcm_map[n].offset,
+        pcm_map[n].length,
+        pcm_map[n].loopstart,
+        pcm_map[n].loopend,
+        pcm_map[n].midinote,
+        pcm_map[n].sample_rate_index,
+        pcm_map[n].sample);
+}
+
 void rat_debug(int d) {
     show_debug(d);
+}
+
+void rat_see(void) {
+    see_marker();
 }
 
 void rat_global_dump(void) {
@@ -134,7 +151,7 @@ void rat_osc_multi(int f) {
     if (f == 0) {
         printf("off => ");
         for (int i=0; i<AMY_OSCS; i++) {
-            if (synth[i].status == OFF) {
+            if (synth[i].status == STATUS_OFF) {
                 //rat_osc_dump(i);
                 printf("%d ", i);
             }
@@ -143,7 +160,7 @@ void rat_osc_multi(int f) {
     } else if (f == 1) {
         printf(" on => ");
         for (int i=0; i<AMY_OSCS; i++) {
-            if (synth[i].status != OFF) {
+            if (synth[i].status != STATUS_OFF) {
                 //rat_osc_dump(i);
                 printf("%d ", i);
             }
@@ -324,4 +341,29 @@ void rat_framer(int len) {
     //printf("frames = %p\n", frames);
     nframes = len;
     capture_start(frames, len, NULL);
+}
+
+void rat_patch_from_framer(int p) {
+    capture_stop();
+    int n = captured_frames();
+    if (n == 0) return;
+    int16_t *nf = (int16_t *)malloc(n/2 * sizeof(int16_t));
+    if (nf) {
+        int16_t *m = nf;
+        int x = 0;
+        for (int i=0; i<n; i+=2) {
+            int16_t a = rat_frame_at(i);
+            int16_t b = rat_frame_at(i+1);
+            *m = (a+b)/2;
+            m++;
+            x++;
+        }
+        if (pcm_map[p].sample) free(pcm_map[p].sample);
+        pcm_map[p].sample = nf;
+        pcm_map[p].length = x-1;
+        pcm_map[p].loopstart = 2;
+        pcm_map[p].loopend = x-2;
+        pcm_map[p].sample_rate_index = 1;
+        pcm_map[p].midinote = 69;
+    }
 }

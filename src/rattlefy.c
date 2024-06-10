@@ -185,6 +185,7 @@ int query(char *token, int start) {
             break;
         case 's':
             INFO("%" PRIu32 "\n", total_samples);
+            see_marker();
             break;
         case 'r': // show capture count
             for (unsigned int i=0; i<BLEN; i++) {
